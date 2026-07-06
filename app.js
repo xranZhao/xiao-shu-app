@@ -10,6 +10,10 @@ const App = {
     currentStep: 1,
     steps: { event: "", feeling: "", defense: "", extend: "" },
   },
+  // 识人板块
+  people: [],
+  currentPersonId: null,
+  obsType: "言",
 
   init() {
     this.loadData();
@@ -34,9 +38,11 @@ const App = {
       const chat = localStorage.getItem("xs_chat_history");
       const diaries = localStorage.getItem("xs_diaries");
       const mode = localStorage.getItem("xs_mode");
+      const people = localStorage.getItem("xs_people");
       if (chat) this.currentChat = JSON.parse(chat);
       if (diaries) this.diaries = JSON.parse(diaries);
       if (mode) this.currentMode = mode;
+      if (people) this.people = JSON.parse(people);
     } catch (e) {
       console.error("加载数据失败", e);
     }
@@ -47,6 +53,7 @@ const App = {
       localStorage.setItem("xs_chat_history", JSON.stringify(this.currentChat.slice(-CONFIG.MAX_HISTORY)));
       localStorage.setItem("xs_diaries", JSON.stringify(this.diaries));
       localStorage.setItem("xs_mode", this.currentMode);
+      localStorage.setItem("xs_people", JSON.stringify(this.people));
     } catch (e) {
       console.error("保存数据失败", e);
       this.showToast("本地存储已满，请清理数据");
@@ -681,12 +688,290 @@ ${content}`;
     localStorage.removeItem("xs_chat_history");
     localStorage.removeItem("xs_diaries");
     localStorage.removeItem("xs_mode");
+    localStorage.removeItem("xs_people");
     localStorage.removeItem("xs_user_config");
     this.currentChat = [];
     this.diaries = [];
+    this.people = [];
     this.currentMode = "xiaoshu";
     this.saveData();
     location.reload();
+  },
+
+  // ========== 识人板块 ==========
+  renderPeopleList() {
+    const list = document.getElementById("people-list");
+    if (!list) return;
+    if (this.people.length === 0) {
+      list.innerHTML = '<div class="empty-people">🔍 还没有观察对象<br>点击上方「新增角色」开始识人<br><br><small>识人的目的不是评判对方，<br>而是理解「我为什么会有这种感觉」</small></div>';
+      return;
+    }
+    list.innerHTML = "";
+    this.people.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "person-card";
+      card.innerHTML = `
+        <div class="person-card-header">
+          <span class="person-card-name">${this.escapeHtml(p.name)}</span>
+          <span class="person-card-relation">${this.escapeHtml(p.relation)}</span>
+        </div>
+        <div class="person-card-meta">观察到 ${p.observations.length} 次 · ${new Date(p.createdAt).toLocaleDateString("zh-CN")}</div>
+      `;
+      card.addEventListener("click", () => this.openPerson(p.id));
+      list.appendChild(card);
+    });
+  },
+
+  showPersonForm() {
+    // 移除旧弹框
+    const old = document.querySelector(".person-form-overlay");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.className = "person-form-overlay";
+    overlay.innerHTML = `
+      <div class="person-form-card">
+        <h3>新增角色</h3>
+        <input type="text" id="person-form-name" placeholder="角色名称（如：男朋友、同事A）">
+        <select id="person-form-relation">
+          <option value="">选择关系...</option>
+          <option value="伴侣">伴侣</option>
+          <option value="家人">家人</option>
+          <option value="同事">同事</option>
+          <option value="朋友">朋友</option>
+          <option value="相亲对象">相亲对象</option>
+          <option value="其他">其他</option>
+        </select>
+        <textarea id="person-form-impression" placeholder="这个人给我的初步印象..." rows="2"></textarea>
+        <button id="person-form-save" class="btn-primary">保存角色</button>
+        <button id="person-form-cancel" class="btn-text">取消</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) { overlay.remove(); }
+    });
+    document.getElementById("person-form-cancel").addEventListener("click", () => overlay.remove());
+    document.getElementById("person-form-save").addEventListener("click", () => {
+      const name = document.getElementById("person-form-name").value.trim();
+      const relation = document.getElementById("person-form-relation").value;
+      const impression = document.getElementById("person-form-impression").value.trim();
+      if (!name) { this.showToast("请输入角色名称"); return; }
+      const person = {
+        id: Date.now(),
+        name,
+        relation: relation || "其他",
+        impression,
+        observations: [],
+        analyses: [],
+        createdAt: Date.now(),
+      };
+      this.people.unshift(person);
+      this.saveData();
+      overlay.remove();
+      this.renderPeopleList();
+      this.showToast("角色已添加");
+    });
+  },
+
+  openPerson(id) {
+    this.currentPersonId = id;
+    document.getElementById("people-list-view").style.display = "none";
+    document.getElementById("person-detail-view").style.display = "";
+    this.renderPersonDetail();
+
+    // 过度分析检测
+    if (this.people.length >= 4) {
+      document.getElementById("over-analyze-warning").style.display = "block";
+      document.getElementById("over-analyze-warning").innerHTML =
+        "🌱 小树轻轻问：你在观察这么多人的时候，有没有可能想通过分析别人，来转移对自我的觉察？也许可以去觉察日记那边写一篇。分析功能依然能用。";
+    }
+  },
+
+  closePerson() {
+    this.currentPersonId = null;
+    document.getElementById("people-list-view").style.display = "";
+    document.getElementById("person-detail-view").style.display = "none";
+  },
+
+  getCurrentPerson() {
+    return this.people.find(p => p.id === this.currentPersonId);
+  },
+
+  renderPersonDetail() {
+    const p = this.getCurrentPerson();
+    if (!p) return;
+
+    // 角色信息
+    document.getElementById("person-info-card").innerHTML = `
+      <div class="person-info-name">${this.escapeHtml(p.name)}</div>
+      <div class="person-info-relation">${this.escapeHtml(p.relation)} · ${new Date(p.createdAt).toLocaleDateString("zh-CN")}</div>
+      ${p.impression ? `<div class="person-info-meta" style="font-size:13px;color:var(--text-light);margin-top:6px;">${this.escapeHtml(p.impression)}</div>` : ""}
+      <div class="person-info-ct-hint">
+        💡 识人的目的不是评判对方，而是理解「为什么我和他在一起会有这种感觉」。<br><br>
+        先问自己：<br>
+        1. 我的反移情是什么？<br>
+        2. 这个人让我想起了谁？<br>
+        3. 这种互动模式，是不是在别的关系里也出现过？
+      </div>
+      <button class="btn-text danger" style="margin-top:8px;" id="delete-person-btn">删除此角色</button>
+    `;
+    document.getElementById("delete-person-btn").addEventListener("click", () => {
+      if (!confirm(`确定删除「${p.name}」及其所有记录吗？`)) return;
+      this.people = this.people.filter(pp => pp.id !== p.id);
+      this.saveData();
+      this.closePerson();
+      this.renderPeopleList();
+      this.showToast("角色已删除");
+    });
+
+    // 观察记录
+    document.getElementById("obs-count").textContent = `(${p.observations.length} 条)`;
+    this.renderObsList();
+
+    // 上次分析
+    if (p.analyses.length > 0) {
+      document.getElementById("person-analysis-card").style.display = "";
+      const last = p.analyses[p.analyses.length - 1];
+      document.getElementById("analysis-body").innerHTML = this.markdownToHtml(last.content);
+      document.getElementById("analysis-honesty").innerHTML = `<strong>⚠️ 诚实边界</strong><br>${this.HONESTY_BOUNDARY}`;
+      document.getElementById("analysis-date").textContent = "分析时间：" + new Date(last.createdAt).toLocaleString("zh-CN");
+    } else {
+      document.getElementById("person-analysis-card").style.display = "none";
+    }
+  },
+
+  renderObsList() {
+    const p = this.getCurrentPerson();
+    if (!p) return;
+    const list = document.getElementById("obs-list");
+    if (!list) return;
+    if (p.observations.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-light);font-size:13px;text-align:center;padding:12px;">还没有观察记录，在下方添加</div>';
+      return;
+    }
+    list.innerHTML = "";
+    [...p.observations].reverse().forEach(o => {
+      const div = document.createElement("div");
+      div.className = "obs-item";
+      div.innerHTML = `
+        <div class="obs-item-header">
+          <span class="obs-item-type">${o.type === "言" ? "💬" : o.type === "行" ? "🏃" : "🧠"} ${o.type}</span>
+          <div>
+            <span class="obs-item-date">${new Date(o.createdAt).toLocaleString("zh-CN")}</span>
+            <button class="obs-item-delete" data-oid="${o.id}">删除</button>
+          </div>
+        </div>
+        <div class="obs-item-content">${this.escapeHtml(o.content)}</div>
+      `;
+      list.appendChild(div);
+    });
+
+    // 删除事件
+    list.querySelectorAll(".obs-item-delete").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const oid = parseInt(btn.dataset.oid);
+        p.observations = p.observations.filter(o => o.id !== oid);
+        this.saveData();
+        this.renderObsList();
+        document.getElementById("obs-count").textContent = `(${p.observations.length} 条)`;
+      });
+    });
+  },
+
+  HONESTY_BOUNDARY: `• 这些分析基于你提供的二手信息（你的视角），不是第一手观察，存在严重偏差。
+• 分析依赖的只是你记录的语言和行为片段，无法还原完整的语境和对方的内心体验。
+• 我能看到的只是「你这侧的客体关系配对」——看到的不是真实的他，是你眼中的他。
+• 以下结论仅为推测，不能被当作对方的事实。
+• 不要用这些分析去给对方贴标签；不要用这些分析去质问对方、「诊断」对方、或证明自己是对的。
+• 精神分析不是你攻击别人的武器。
+• 如果你用这些去说服对方"你不是回避型吗"——我会生气。`,
+
+  async analyzePerson() {
+    const p = this.getCurrentPerson();
+    if (!p) return;
+    if (p.observations.length === 0) { this.showToast("请先添加观察记录"); return; }
+    if (!CONFIG.API_KEY) { this.showToast("请先在设置页填入 API Key"); return; }
+
+    document.getElementById("analyze-person-btn").disabled = true;
+    document.getElementById("analyze-person-btn").textContent = "分析中...";
+
+    // 构建观察记录文本
+    let obsText = p.observations.map((o, i) => {
+      return `${i + 1}. [${o.type}] ${o.content}`;
+    }).join("\n");
+
+    // 反移情信息
+    let ctInfo = "";
+    if (p.analyses.length > 0) {
+      ctInfo = `\n（历史分析次数：${p.analyses.length}，请关注模式是否在变化）`;
+    }
+
+    // 男性类型参考（来自人生护航课第18-25节）
+    const MALE_TYPES_REF = `
+【小树课程中的男性类型参考】
+- 妈宝男（隐形/大孝子型）：与妈妈共生的生存模式，善于摸女性情绪，永远有人兜底
+- 巨婴男（隐形型）：心智停留在偏执分裂位，用"好坏/三观正不正"评价一切
+- 回避型依恋男：真正回避的不是冲突，而是亲密的感觉和靠近的愿望
+- 凤凰男：心里住着海滩上挣扎的家人，最在意家族荣耀
+- 经济适用男：攻击性出不去就以被动方式表达（爱抱怨/麻木/聊骚）
+- 富二代/精英男：镜映失败、看不清自己、需要"养成系"伴侣
+- 离异男：离婚对男人是"总结教训"（防御更高），核心需求是钱`;
+
+    const prompt = `你正在帮用户分析一位她身边的重要他人。你的分析目的不是给这个不在场的人贴标签，而是帮助用户理解自己的反移情和关系模式。
+
+${MALE_TYPES_REF}
+
+用户观察的对象信息：
+- 称呼：${p.name}
+- 关系：${p.relation}
+- 用户初步印象：${p.impression || "未提供"}
+
+用户记录的观察（按时间顺序）：
+${obsText}${ctInfo}
+
+请给出一段温和的精神动力学分析。原则：
+1. 用「推测框架」而非「结论框架」——"从这些记录来看，我观察到这样的模式..."而非"他是XX型"
+2. 关注防御机制：这个人用什么样的方式保护自己？
+3. 关注核心需求：这个人最渴望得到却从未得到过的是什么？
+4. 关注反移情：用户记录这些时，可能在被唤起什么样的感受？
+5. 指出人格发展水平（一元/二元/三元）的线索（如有）
+6. 如果与上述7种男性类型有相似之处，温和地点一下
+7. 控制 400-600 字`;
+
+    try {
+      const response = await fetch(CONFIG.BASE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+        body: JSON.stringify({
+          model: CONFIG.MODEL,
+          messages: [
+            {
+              role: "system",
+              content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个基于精神分析的识人助手。",
+            },
+            { role: "user", content: prompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+        }),
+      });
+      if (!response.ok) { const err = await response.text(); throw new Error(`API 错误: ${err}`); }
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+
+      p.analyses.push({ id: Date.now(), content, createdAt: Date.now() });
+      this.saveData();
+      this.renderPersonDetail();
+      this.showToast("分析完成 🌱");
+    } catch (err) {
+      console.error(err);
+      this.showToast("分析失败：" + err.message);
+    } finally {
+      document.getElementById("analyze-person-btn").disabled = false;
+      document.getElementById("analyze-person-btn").textContent = "🌱 小树分析此角色";
+    }
   },
 
   // ========== Tab 导航 ==========
@@ -706,6 +991,10 @@ ${content}`;
       this.loadGuidedDraft();
       this.renderGuidedStep();
       this.renderDiaries();
+    }
+    // 切换到识人页时渲染角色列表
+    if (tab === "people") {
+      this.renderPeopleList();
     }
   },
 
@@ -734,7 +1023,7 @@ ${content}`;
     if (modeBtn) modeBtn.addEventListener("click", () => this.toggleMode());
 
     // Tab 切换
-    ["chat", "diary", "settings"].forEach((tab) => {
+    ["chat", "diary", "people", "settings"].forEach((tab) => {
       const btn = document.getElementById(`nav-${tab}`);
       if (btn) btn.addEventListener("click", () => this.switchTab(tab));
     });
@@ -778,6 +1067,41 @@ ${content}`;
 
     // 导出
     document.getElementById("export-all-btn").addEventListener("click", () => this.exportAllDiaries());
+
+    // ===== 识人板块事件 =====
+    document.getElementById("add-person-btn").addEventListener("click", () => this.showPersonForm());
+    document.getElementById("person-back-btn").addEventListener("click", () => this.closePerson());
+
+    // 观察类型切换
+    document.querySelectorAll(".obs-type-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        document.querySelectorAll(".obs-type-btn").forEach(b => b.classList.remove("active"));
+        e.target.classList.add("active");
+        this.obsType = e.target.dataset.type;
+      });
+    });
+
+    // 添加观察记录
+    document.getElementById("add-obs-btn").addEventListener("click", () => {
+      const p = this.getCurrentPerson();
+      if (!p) return;
+      const input = document.getElementById("obs-input");
+      const content = input.value.trim();
+      if (!content) { this.showToast("请输入观察内容"); return; }
+      p.observations.push({
+        id: Date.now(),
+        type: this.obsType,
+        content,
+        createdAt: Date.now(),
+      });
+      this.saveData();
+      input.value = "";
+      this.renderPersonDetail();
+      this.showToast("观察记录已添加");
+    });
+
+    // 小树分析
+    document.getElementById("analyze-person-btn").addEventListener("click", () => this.analyzePerson());
 
     // 设置
     const saveSettingsBtn = document.getElementById("save-settings-btn");

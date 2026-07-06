@@ -99,6 +99,59 @@
       <div id="diary-list" class="diary-list"></div>
     </div>
 
+    <!-- 识人页 -->
+    <div id="tab-people" class="tab-content">
+      <!-- 角色列表 -->
+      <div id="people-list-view" class="people-list-view">
+        <div class="people-toolbar">
+          <button id="add-person-btn" class="btn-primary" style="width:auto;padding:10px 20px;">+ 新增角色</button>
+        </div>
+        <div id="people-list" class="people-list"></div>
+      </div>
+
+      <!-- 角色详情 + 新增/编辑角色表单 -->
+      <div id="person-detail-view" class="person-detail-view" style="display:none;">
+        <div class="person-detail-header">
+          <button id="person-back-btn" class="btn-text">← 返回列表</button>
+        </div>
+
+        <!-- 角色信息区域 -->
+        <div id="person-info-card" class="person-info-card"></div>
+
+        <!-- 新增记录表单 -->
+        <div class="obs-add-card">
+          <div class="obs-type-row">
+            <button class="obs-type-btn active" data-type="言">💬 言</button>
+            <button class="obs-type-btn" data-type="行">🏃 行</button>
+            <button class="obs-type-btn" data-type="信念">🧠 信念</button>
+          </div>
+          <textarea id="obs-input" class="obs-input" placeholder="记录你观察到的..." rows="3"></textarea>
+          <div id="countertransfer-reminder" class="ct-reminder">
+            💡 先停一下：他刚才让你产生了什么感觉？10秒体会一下——这个感受是你的，还是他投射给你的？
+          </div>
+          <button id="add-obs-btn" class="btn-primary">📝 添加记录</button>
+        </div>
+
+        <!-- 观察记录列表 -->
+        <div class="obs-list-label">📋 观察记录 <span id="obs-count"></span></div>
+        <div id="obs-list" class="obs-list"></div>
+
+        <!-- 分析区域 -->
+        <div class="obs-analyze-area">
+          <button id="analyze-person-btn" class="btn-primary">🌱 小树分析此角色</button>
+        </div>
+        <div id="person-analysis-card" class="person-analysis-card" style="display:none;">
+          <div class="analysis-header">🌱 小树分析</div>
+          <div class="analysis-body" id="analysis-body"></div>
+          <div class="analysis-honesty" id="analysis-honesty"></div>
+          <div class="analysis-date" id="analysis-date"></div>
+        </div>
+
+        <!-- 过度分析提醒 -->
+        <div id="over-analyze-warning" class="over-analyze-warning" style="display:none;"></div>
+      </div>
+    </div>
+
     <!-- 设置页 -->
     <div id="tab-settings" class="tab-content">
       <div class="settings-card">
@@ -140,6 +193,10 @@
       <button id="nav-diary" class="tab-btn">
         <span class="tab-icon">📝</span>
         <span class="tab-label">日记</span>
+      </button>
+      <button id="nav-people" class="tab-btn">
+        <span class="tab-icon">🔍</span>
+        <span class="tab-label">识人</span>
       </button>
       <button id="nav-settings" class="tab-btn">
         <span class="tab-icon">⚙️</span>

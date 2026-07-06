@@ -771,8 +771,10 @@ html, body {
   z-index: 100;
 }
 
-.tab-btn {
+/* 底部导航 - 4 column */
+.tab-bar .tab-btn {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -827,6 +829,330 @@ html, body {
 
 /* 滚动条美化 */
 ::-webkit-scrollbar {
+
+/* ====== 识人板块 ====== */
+.people-list-view {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 80px;
+}
+
+.people-toolbar {
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.people-list {
+  padding: 0 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.person-card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.person-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.person-card-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.person-card-relation {
+  font-size: 12px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.person-card-meta {
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+/* 角色详情 */
+.person-detail-view {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 80px;
+}
+
+.person-detail-header {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
+  flex-shrink: 0;
+}
+
+.person-info-card {
+  margin: 12px;
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+}
+
+.person-info-name {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.person-info-relation {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-top: 4px;
+}
+
+.person-info-ct-hint {
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--primary-soft);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--primary);
+}
+
+/* 新增记录 */
+.obs-add-card {
+  margin: 12px;
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.obs-type-row {
+  display: flex;
+  gap: 8px;
+}
+
+.obs-type-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.obs-type-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.obs-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 70px;
+  outline: none;
+}
+
+.obs-input:focus {
+  border-color: var(--primary-light);
+}
+
+.ct-reminder {
+  font-size: 12px;
+  color: var(--primary);
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: var(--primary-soft);
+  border-radius: 8px;
+}
+
+.obs-list-label {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.obs-list {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.obs-item {
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.obs-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.obs-item-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.obs-item-date {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.obs-item-content {
+  color: var(--text);
+}
+
+.obs-item-delete {
+  font-size: 11px;
+  color: #c45c5c;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 2px 6px;
+}
+
+/* 分析区域 */
+.obs-analyze-area {
+  padding: 16px;
+}
+
+.person-analysis-card {
+  margin: 12px;
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid var(--primary-light);
+}
+
+.analysis-header {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 10px;
+}
+
+.analysis-body {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text);
+}
+
+.analysis-honesty {
+  margin-top: 14px;
+  padding: 12px;
+  background: #fef8f0;
+  border-radius: 10px;
+  border-left: 3px solid #d4a853;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #8b6914;
+}
+
+.analysis-date {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 8px;
+  text-align: right;
+}
+
+.over-analyze-warning {
+  margin: 12px;
+  padding: 12px;
+  background: #fdf0ed;
+  border-radius: 10px;
+  border-left: 3px solid #c45c5c;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #8b2020;
+}
+
+/* 空状态 */
+.empty-people {
+  text-align: center;
+  color: var(--text-light);
+  padding: 50px 20px;
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+/* 新增/编辑角色弹框 */
+.person-form-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 300;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.person-form-card {
+  background: var(--card-bg);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 16px 30px;
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.person-form-card h3 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 17px;
+  text-align: center;
+}
+
+.person-form-card input,
+.person-form-card select,
+.person-form-card textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+.person-form-row {
+  display: flex;
+  gap: 10px;
+}
   width: 4px;
 }
 
