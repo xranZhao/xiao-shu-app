@@ -829,6 +829,13 @@ html, body {
 
 /* 滚动条美化 */
 ::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
 
 /* ====== 识人板块 ====== */
 .people-list-view {
