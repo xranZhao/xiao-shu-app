@@ -257,16 +257,54 @@ const App = {
         `🌱 小树注意到：你在 <strong>${match.date}</strong> 的日记里也有过类似的感觉——"${this.escapeHtml(match.snippet)}"。这可能是你的一个<strong>强迫性重复模式</strong>。<br><br><a onclick="App.viewDiary(${match.id})">📖 回顾那篇日记：《${this.escapeHtml(match.title)}》</a>`;
     }
 
+    // 检查 API Key
+    if (!CONFIG.API_KEY) {
+      document.getElementById("summary-feedback-label").textContent = "🌱 缺少 API Key";
+      document.getElementById("summary-feedback").innerHTML = "请先到「⚙️ 设置」填入你的 API Key，然后回来点「重新来过」重新提交。";
+      return;
+    }
+
+    // 显示进度条
+    const fbLabel = document.getElementById("summary-feedback-label");
+    const fbBody = document.getElementById("summary-feedback");
+    fbLabel.textContent = "🌱 小树正在感受你的日记...";
+    fbBody.innerHTML = `
+      <div class="feedback-progress">
+        <div class="fp-bar"><div class="fp-fill" id="fp-fill"></div></div>
+        <div class="fp-text" id="fp-text">连接中...</div>
+      </div>`;
+
+    // 模拟进度条动画
+    let progressTimer = null;
+    let progress = 0;
+    const advanceProgress = () => {
+      if (progress < 90) {
+        progress += Math.random() * 15 + 5; // 5-20% per tick
+        if (progress > 90) progress = 90;
+        document.getElementById("fp-fill").style.width = progress + "%";
+        const messages = ["连接中...", "小树在读你的情绪事件...", "小树在体会你的感受...", "小树在看你的防御方式...", "小树在连接你的过去..."];
+        const idx = Math.min(Math.floor(progress / 20), messages.length - 1);
+        document.getElementById("fp-text").textContent = messages[idx];
+        progressTimer = setTimeout(advanceProgress, 600 + Math.random() * 800);
+      }
+    };
+    advanceProgress();
+
     // 调 AI 反馈
-    document.getElementById("summary-feedback-label").textContent = "🌱 小树正在感受你的日记...";
     try {
       const feedback = await this.callGuidedFeedback(steps);
-      document.getElementById("summary-feedback").innerHTML = this.markdownToHtml(feedback);
-      document.getElementById("summary-feedback-label").textContent = "🌱 小树回应";
+      clearTimeout(progressTimer);
+      document.getElementById("fp-fill").style.width = "100%";
+      document.getElementById("fp-text").textContent = "完成 ✓";
+      setTimeout(() => {
+        fbLabel.textContent = "🌱 小树回应";
+        fbBody.innerHTML = this.markdownToHtml(feedback);
+      }, 400);
     } catch (err) {
+      clearTimeout(progressTimer);
       console.error(err);
-      document.getElementById("summary-feedback").innerHTML = "（小树反馈获取失败，你可以稍后再试）";
-      document.getElementById("summary-feedback-label").textContent = "🌱 小树回应（获取失败）";
+      fbLabel.textContent = "🌱 小树回应（获取失败）";
+      fbBody.innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}<br><br>请检查：<br>1. ⚙️ 设置页 API Key 是否正确<br>2. 网络连接是否正常<br>3. API 额度是否用完<br><br>修复后点「重新来过」再试一次。</div>`;
     }
   },
 
