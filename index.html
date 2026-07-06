@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#8b5a2b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>小树觉察室</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部栏 -->
+    <header class="app-header">
+      <div class="header-title">小树觉察室</div>
+      <button id="mode-switch" class="mode-btn">🌱 小树模式</button>
+    </header>
+
+    <!-- 对话页 -->
+    <div id="tab-chat" class="tab-content active">
+      <div class="chat-toolbar">
+        <button id="clear-chat-btn" class="btn-text">清空对话</button>
+      </div>
+      <div id="chat-messages" class="chat-messages"></div>
+      <div id="chat-loading" class="chat-loading" style="display: none;">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="chat-input-area">
+        <textarea id="chat-input" placeholder="写下你的想法，小树会回应你..." rows="1"></textarea>
+        <button id="send-btn" class="send-btn">发送</button>
+      </div>
+    </div>
+
+    <!-- 觉察日记页 -->
+    <div id="tab-diary" class="tab-content">
+      <!-- 模式切换 -->
+      <div class="diary-mode-tabs">
+        <button class="diary-mode-btn active" data-mode="guided">🧭 引导式觉察</button>
+        <button class="diary-mode-btn" data-mode="free">✏️ 自由书写</button>
+      </div>
+
+      <!-- 引导式觉察 -->
+      <div id="guided-diary" class="diary-mode-content active">
+        <div class="guided-step-card" id="guided-step-card">
+          <div class="step-progress">
+            <span class="step-badge">第 <strong id="step-num">1</strong>/4 步</span>
+            <span class="step-name" id="step-name">情绪事件</span>
+          </div>
+          <div class="step-question">
+            <div class="sq-avatar">🌱</div>
+            <div class="sq-bubble" id="step-question">
+              最近发生了什么让你情绪波动的事？先不急着分析，就客观描述一下发生了什么。什么人说了什么话？做了什么事？
+            </div>
+          </div>
+          <textarea id="step-input" class="step-input" placeholder="在这里写下你的回答..." rows="5"></textarea>
+          <div class="step-actions">
+            <button id="step-prev-btn" class="btn-step-prev">← 上一步</button>
+            <button id="step-next-btn" class="btn-step-next">下一步 →</button>
+          </div>
+        </div>
+
+        <!-- 汇总 + AI 反馈 -->
+        <div id="guided-summary" class="guided-summary-card" style="display:none;">
+          <div class="summary-header">✅ 觉察日记已完成</div>
+          <div class="summary-body" id="summary-body"></div>
+          <div class="pattern-alert" id="pattern-alert" style="display:none;"></div>
+          <div class="summary-feedback-label">🌱 小树正在感受你的日记...</div>
+          <div class="summary-feedback" id="summary-feedback"></div>
+          <div class="summary-title-row">
+            <label>标题：</label>
+            <input type="text" id="summary-title" class="summary-title-input">
+          </div>
+          <div class="summary-actions">
+            <button id="save-guided-btn" class="btn-primary">💾 保存到觉察日记库</button>
+            <button id="reset-guided-btn" class="btn-text">重新来过</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 自由书写 -->
+      <div id="free-diary" class="diary-mode-content">
+        <div class="diary-write">
+          <h3>写觉察日记</h3>
+          <input type="text" id="diary-title" placeholder="标题（可选，留空自动生成）">
+          <textarea id="diary-content" placeholder="今天发生了什么？你有什么情绪？试着描述一下..." rows="6"></textarea>
+          <div id="diary-loading" class="diary-loading" style="display: none;">小树正在读你的日记...</div>
+          <button id="save-diary-btn" class="btn-primary">保存并获取小树回应</button>
+        </div>
+      </div>
+
+      <!-- 导出 + 日记列表 -->
+      <div class="diary-toolbar">
+        <button id="export-all-btn" class="btn-text">📤 导出全部</button>
+        <span class="diary-count" id="diary-count"></span>
+      </div>
+      <div id="diary-list" class="diary-list"></div>
+    </div>
+
+    <!-- 设置页 -->
+    <div id="tab-settings" class="tab-content">
+      <div class="settings-card">
+        <h3>API 设置</h3>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="setting-api-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+          <label>模型</label>
+          <input type="text" id="setting-model" value="deepseek-chat">
+        </div>
+        <div class="form-group">
+          <label>API 地址</label>
+          <input type="text" id="setting-base-url" value="https://api.deepseek.com/v1/chat/completions">
+        </div>
+        <button id="save-settings-btn" class="btn-primary">保存设置</button>
+      </div>
+
+      <div class="settings-card danger-zone">
+        <h3>危险区域</h3>
+        <button id="clear-data-btn" class="btn-danger">清空所有本地数据</button>
+      </div>
+
+      <div class="settings-card">
+        <h3>关于</h3>
+        <p>这是一个基于谢小树「核心需求探索」课程内容的个人觉察工具。</p>
+        <p>数据全部存在你的手机/浏览器本地，不会上传到任何服务器。</p>
+        <p>小树模式下的回应基于课程内容推断，非本人观点。</p>
+      </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <nav class="tab-bar">
+      <button id="nav-chat" class="tab-btn active">
+        <span class="tab-icon">💬</span>
+        <span class="tab-label">对话</span>
+      </button>
+      <button id="nav-diary" class="tab-btn">
+        <span class="tab-icon">📝</span>
+        <span class="tab-label">日记</span>
+      </button>
+      <button id="nav-settings" class="tab-btn">
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-label">设置</span>
+      </button>
+    </nav>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script src="config.js?v=4"></script>
+  <script src="xiaoshu-prompt.js?v=4"></script>
+  <script src="app.js?v=4"></script>
+</body>
+</html>
