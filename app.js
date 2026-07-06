@@ -144,7 +144,7 @@ const App = {
     ];
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
       body: JSON.stringify({ model: CONFIG.MODEL, messages, temperature: 0.8, max_tokens: 2000 }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
@@ -443,7 +443,7 @@ ${historySummary}
 
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
       body: JSON.stringify({
         model: CONFIG.MODEL,
         messages: [
@@ -577,7 +577,7 @@ ${content}`;
 
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
       body: JSON.stringify({
         model: CONFIG.MODEL,
         messages: [
@@ -984,7 +984,7 @@ ${obsText}${ctInfo}
     try {
       const response = await fetch(CONFIG.BASE_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+        headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
         body: JSON.stringify({
           model: CONFIG.MODEL,
           messages: [
