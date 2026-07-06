@@ -465,7 +465,9 @@ ${historySummary}
   saveGuidedDiary() {
     const steps = this.guided.steps;
     const title = document.getElementById("summary-title").value.trim();
-    const feedback = document.getElementById("summary-feedback").textContent.trim();
+    // 从 innerHTML 里获取真实反馈（处理 markdown 渲染后的内容）
+    const fbEl = document.getElementById("summary-feedback");
+    const feedback = fbEl ? fbEl.innerText || fbEl.textContent : "";
     const content = `【情绪事件】\n${steps.event}\n\n【身心感受】\n${steps.feeling}\n\n【防御方式】\n${steps.defense}\n\n【延展模型】\n${steps.extend}`;
 
     const diary = {
@@ -675,7 +677,8 @@ ${content}`;
   },
 
   downloadFile(filename, text) {
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    // 使用 UTF-8 BOM 确保 Windows/手机打开不乱码
+    const blob = new Blob(["﻿" + text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
