@@ -186,7 +186,12 @@ const App = {
       const saved = localStorage.getItem(this.getGuidedDraftKey());
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.currentStep) this.guided = parsed;
+        if (parsed && parsed.currentStep) {
+          this.guided = {
+            currentStep: parsed.currentStep,
+            steps: { event: "", feeling: "", defense: "", extend: "", ...parsed.steps },
+          };
+        }
       }
     } catch (e) { /* ignore */ }
   },
@@ -310,8 +315,10 @@ const App = {
 
   generateDiaryTitle(steps) {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const event = steps.event || "";
+    const feeling = steps.feeling || "";
     // 从情绪事件中提取关键词（前2-6个字符）
-    let eventKey = steps.event.replace(/\s+/g, "").slice(0, 8);
+    let eventKey = event.replace(/\s+/g, "").slice(0, 8);
     if (eventKey.length > 8) eventKey = eventKey.slice(0, 8);
     if (eventKey.length < 2) eventKey = "觉察";
     // 从身心感受中匹配主要情绪
@@ -321,15 +328,15 @@ const App = {
     ];
     let emotion = "";
     for (const e of emotionMap) {
-      if (steps.feeling.includes(e)) { emotion = e; break; }
+      if (feeling.includes(e)) { emotion = e; break; }
     }
     if (!emotion) emotion = "情绪波动";
     return `${today}-${eventKey}-${emotion}`;
   },
 
   findSimilarPattern(steps) {
-    if (this.diaries.length < 1) return null;
-    const currentText = (steps.extend + steps.defense + steps.feeling).toLowerCase();
+    if (!this.diaries || this.diaries.length < 1) return null;
+    const currentText = ((steps.extend || "") + (steps.defense || "") + (steps.feeling || "")).toLowerCase();
     const currentWords = this.extractKeywords(currentText);
 
     let bestMatch = null;
@@ -616,10 +623,12 @@ ${content}`;
       const hasSteps = d.steps && d.steps.event;
       let contentHtml = "";
       if (hasSteps) {
+        const eventText = d.steps.event || "";
+        const feelingText = d.steps.feeling || "";
         contentHtml = `
           <div class="diary-steps-mini">
-            <div><span class="s-label">情绪事件</span> ${this.escapeHtml(d.steps.event.slice(0, 60))}${d.steps.event.length > 60 ? "..." : ""}</div>
-            <div><span class="s-label">身心感受</span> ${this.escapeHtml(d.steps.feeling.slice(0, 40))}${d.steps.feeling.length > 40 ? "..." : ""}</div>
+            <div><span class="s-label">情绪事件</span> ${this.escapeHtml(eventText.slice(0, 60))}${eventText.length > 60 ? "..." : ""}</div>
+            <div><span class="s-label">身心感受</span> ${this.escapeHtml(feelingText.slice(0, 40))}${feelingText.length > 40 ? "..." : ""}</div>
           </div>`;
       } else {
         contentHtml = `<div class="diary-content">${this.markdownToHtml(d.content)}</div>`;
