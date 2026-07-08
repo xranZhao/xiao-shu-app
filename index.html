@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -9,7 +9,7 @@
   <title>小树觉察室</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <div id="app">
@@ -155,20 +155,24 @@
     <!-- 设置页 -->
     <div id="tab-settings" class="tab-content">
       <div class="settings-card">
-        <h3>API 设置</h3>
+        <h3>🔑 API 设置</h3>
+        <p class="settings-help">只需粘贴 API Key，点「保存设置」即可。下面两项一般不用改。</p>
         <div class="form-group">
-          <label>API Key</label>
-          <input type="password" id="setting-api-key" placeholder="sk-...">
+          <label>API Key（粘贴到这里）</label>
+          <input type="password" id="setting-api-key" placeholder="sk-..." autocomplete="off">
         </div>
-        <div class="form-group">
-          <label>模型</label>
-          <input type="text" id="setting-model" value="deepseek-chat">
+        <button id="save-settings-btn" class="btn-primary">💾 保存设置</button>
+        <button id="toggle-advanced-btn" class="btn-text" style="margin-top:8px;width:100%;">⚙️ 高级设置 ▸</button>
+        <div id="advanced-settings" style="display:none;">
+          <div class="form-group" style="margin-top:14px;">
+            <label>模型（一般不需要改）</label>
+            <input type="text" id="setting-model" value="deepseek-chat" autocomplete="off" name="xs-model">
+          </div>
+          <div class="form-group">
+            <label>API 地址（一般不需要改）</label>
+            <input type="text" id="setting-base-url" value="https://api.deepseek.com/v1/chat/completions" autocomplete="off">
+          </div>
         </div>
-        <div class="form-group">
-          <label>API 地址</label>
-          <input type="text" id="setting-base-url" value="https://api.deepseek.com/v1/chat/completions">
-        </div>
-        <button id="save-settings-btn" class="btn-primary">保存设置</button>
       </div>
 
       <div class="settings-card danger-zone">
@@ -208,8 +212,9 @@
     <div id="toast" class="toast"></div>
   </div>
 
-  <script src="config.js?v=7"></script>
-  <script src="xiaoshu-prompt.js?v=7"></script>
-  <script src="app.js?v=7"></script>
+  <script src="config.js?v=8"></script>
+  <script src="xiaoshu-prompt.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
+

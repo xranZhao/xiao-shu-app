@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --primary: #8b5a2b;
   --primary-light: #a67c52;
   --primary-soft: #f5f0e8;
@@ -694,6 +694,17 @@ html, body {
   font-size: 17px;
 }
 
+.settings-help {
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: #fefbf6;
+  border-radius: 8px;
+  border-left: 3px solid var(--primary-light);
+}
+
 .settings-card p {
   font-size: 14px;
   line-height: 1.7;
@@ -1197,3 +1208,4 @@ html, body {
   background: var(--border);
   border-radius: 2px;
 }
+

@@ -1,4 +1,4 @@
-// 小树觉察室 - 主逻辑
+﻿// 小树觉察室 - 主逻辑
 
 const App = {
   currentMode: "normal",
@@ -725,12 +725,28 @@ ${content}`;
 
   saveSettings() {
     const apiKey = document.getElementById("setting-api-key").value.trim();
-    const model = document.getElementById("setting-model").value.trim();
+    let model = document.getElementById("setting-model").value.trim();
     const baseUrl = document.getElementById("setting-base-url").value.trim();
-    const userConfig = { API_KEY: apiKey, MODEL: model, BASE_URL: baseUrl };
+
+    // 防手机自动填充：检测模型框是否被填入了 API Key
+    if (model.startsWith("sk-") || model.length > 40) {
+      console.warn("检测到模型框被异常填充，已自动纠正");
+      model = "deepseek-chat";
+      document.getElementById("setting-model").value = model;
+    }
+
+    // 防手机自动填充：检测 API 地址框是否被异常填充
+    let cleanBaseUrl = baseUrl;
+    if (baseUrl.startsWith("sk-") || baseUrl.length > 80) {
+      console.warn("检测到 API 地址框被异常填充，已自动纠正");
+      cleanBaseUrl = "https://api.deepseek.com/v1/chat/completions";
+      document.getElementById("setting-base-url").value = cleanBaseUrl;
+    }
+
+    const userConfig = { API_KEY: apiKey, MODEL: model, BASE_URL: cleanBaseUrl };
     localStorage.setItem("xs_user_config", JSON.stringify(userConfig));
     Object.assign(CONFIG, userConfig);
-    this.showToast("设置已保存");
+    this.showToast("设置已保存 ✅");
   },
 
   clearAllData() {
@@ -1160,6 +1176,20 @@ ${obsText}${ctInfo}
     if (clearDataBtn) clearDataBtn.addEventListener("click", () => this.clearAllData());
     const clearChatBtn = document.getElementById("clear-chat-btn");
     if (clearChatBtn) clearChatBtn.addEventListener("click", () => this.clearChat());
+    // 高级设置展开/折叠
+    const toggleAdvancedBtn = document.getElementById("toggle-advanced-btn");
+    if (toggleAdvancedBtn) {
+      toggleAdvancedBtn.addEventListener("click", () => {
+        const panel = document.getElementById("advanced-settings");
+        if (panel.style.display === "none" || panel.style.display === "") {
+          panel.style.display = "block";
+          toggleAdvancedBtn.textContent = "⚙️ 高级设置 ▾";
+        } else {
+          panel.style.display = "none";
+          toggleAdvancedBtn.textContent = "⚙️ 高级设置 ▸";
+        }
+      });
+    }
   },
 
   // ========== 工具函数 ==========
@@ -1198,7 +1228,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=3").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=4").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
@@ -1217,3 +1247,5 @@ if ("serviceWorker" in navigator) {
 document.addEventListener("DOMContentLoaded", () => {
   App.init();
 });
+
+
