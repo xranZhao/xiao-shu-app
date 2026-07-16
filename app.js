@@ -251,8 +251,19 @@ const App = {
     document.getElementById("summary-body").innerHTML = html;
 
     // 生成标题
-    const title = this.generateDiaryTitle(steps);
-    document.getElementById("summary-title").value = title;
+    const localTitle = this.generateDiaryTitle(steps);
+    const titleInput = document.getElementById("summary-title");
+    titleInput.value = localTitle;
+
+    if (!CONFIG.API_KEY) {
+      this.showToast("未设置 API Key，已使用本地规则生成标题");
+    } else {
+      this.generateAITitle(steps).then((aiTitle) => {
+        if (aiTitle) titleInput.value = aiTitle;
+      }).catch((err) => {
+        console.error("AI 标题生成失败", err);
+      });
+    }
 
     // 本地检测强迫性重复
     const match = this.findSimilarPattern(steps);
@@ -332,6 +343,47 @@ const App = {
     }
     if (!emotion) emotion = "情绪波动";
     return `${today}-${eventKey}-${emotion}`;
+  },
+
+  async generateAITitle(steps) {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const prompt = `请根据用户以下四步觉察日记，直接总结一个标题。
+
+要求：
+1. 标题格式：YYYYMMDD-事件总结-情绪
+2. 时间使用今天的日期：${today}
+3. 事件总结控制在10个汉字以内，基于"情绪事件"的事实，不要解释
+4. 情绪可以是1-3个词，从"身心感受"中提取最主要情绪
+5. 只输出标题，不要任何其他内容
+
+【情绪事件】${steps.event || ""}
+【身心感受】${steps.feeling || ""}
+【防御方式】${steps.defense || ""}
+【延展模型】${steps.extend || ""}`;
+
+    const response = await fetch(CONFIG.BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages: [
+          { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.5,
+        max_tokens: 100,
+      }),
+    });
+    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
+    const data = await response.json();
+    let title = data.choices[0].message.content.trim();
+    // 去除可能包裹的引号或 markdown 代码块标记
+    title = title.replace(/^["'`]+|["'`]+$/g, "").replace(/```/g, "").trim();
+    // 校验格式：YYYYMMDD-...-...
+    if (!/^\d{8}-.+-.+$/.test(title)) {
+      throw new Error("AI 返回的标题格式不正确");
+    }
+    return title;
   },
 
   findSimilarPattern(steps) {
@@ -1239,7 +1291,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=5").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=6").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
