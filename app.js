@@ -623,12 +623,12 @@ ${content}`;
       const hasSteps = d.steps && d.steps.event;
       let contentHtml = "";
       if (hasSteps) {
-        const eventText = d.steps.event || "";
-        const feelingText = d.steps.feeling || "";
         contentHtml = `
           <div class="diary-steps-mini">
-            <div><span class="s-label">情绪事件</span> ${this.escapeHtml(eventText.slice(0, 60))}${eventText.length > 60 ? "..." : ""}</div>
-            <div><span class="s-label">身心感受</span> ${this.escapeHtml(feelingText.slice(0, 40))}${feelingText.length > 40 ? "..." : ""}</div>
+            <div><span class="s-label">情绪事件</span> ${this.escapeHtml(d.steps.event || "")}</div>
+            <div><span class="s-label">身心感受</span> ${this.escapeHtml(d.steps.feeling || "")}</div>
+            <div><span class="s-label">防御方式</span> ${this.escapeHtml(d.steps.defense || "")}</div>
+            <div><span class="s-label">延展模型</span> ${this.escapeHtml(d.steps.extend || "")}</div>
           </div>`;
       } else {
         contentHtml = `<div class="diary-content">${this.markdownToHtml(d.content)}</div>`;
@@ -636,19 +636,30 @@ ${content}`;
 
       card.innerHTML = `
         <div class="diary-header">
-          <h4>${this.escapeHtml(d.title)}</h4>
-          <span class="diary-date">${new Date(d.createdAt).toLocaleString("zh-CN")}</span>
+          <div class="diary-header-main">
+            <h4>${this.escapeHtml(d.title)}</h4>
+            <span class="diary-date">${new Date(d.createdAt).toLocaleString("zh-CN")}</span>
+          </div>
+          <span class="expand-icon">▶</span>
         </div>
-        ${contentHtml}
-        <div class="diary-feedback">
-          <div class="feedback-label">🌱 小树回应</div>
-          <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
-        </div>
-        <div class="diary-card-actions">
-          <button class="btn-text" onclick="App.exportDiary(${d.id})">📤 导出</button>
-          <button class="btn-text danger" onclick="App.deleteDiary(${d.id})">删除</button>
+        <div class="diary-body">
+          ${contentHtml}
+          <div class="diary-feedback">
+            <div class="feedback-label">🌱 小树回应</div>
+            <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
+          </div>
+          <div class="diary-card-actions">
+            <button class="btn-text" onclick="App.exportDiary(${d.id})">📤 导出</button>
+            <button class="btn-text danger" onclick="App.deleteDiary(${d.id})">删除</button>
+          </div>
         </div>
       `;
+
+      const header = card.querySelector(".diary-header");
+      header.addEventListener("click", () => {
+        card.classList.toggle("expanded");
+      });
+
       list.appendChild(card);
     });
   },
@@ -1228,7 +1239,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=4").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=5").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
