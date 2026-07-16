@@ -19,6 +19,9 @@ node_modules/
 *.swp
 *~
 
+# 本地版本备份目录，只留在本地，不上传 Git
+releases/
+
 # Python
 __pycache__/
 *.pyc
