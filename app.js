@@ -352,8 +352,10 @@ const App = {
 要求：
 1. 标题格式：YYYYMMDD-事件总结-情绪
 2. 时间使用今天的日期：${today}
-3. 事件总结控制在10个汉字以内，基于"情绪事件"的事实，不要解释
-4. 情绪可以是1-3个词，从"身心感受"中提取最主要情绪
+3. 事件总结：用10个汉字以内概括"情绪事件"的核心内容，不是截取原文前10个字，而是提炼关键词。例如：
+   - 不好："我之前和男朋友..."（这是原文截取）
+   - 好："恋爱脑+妈宝女"（这是提炼核心主题）
+4. 情绪：从"身心感受"中提炼1-3个最主要情绪词
 5. 只输出标题，不要任何其他内容
 
 【情绪事件】${steps.event || ""}
@@ -1291,7 +1293,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=6").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=7").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
