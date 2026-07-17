@@ -15,6 +15,20 @@ const App = {
   currentPersonId: null,
   obsType: "言",
 
+  // 情绪颜色区数据（来自情绪盒子）
+  emotionZones: {
+    red: { name: "红色区", emotions: ["愤怒", "嫉妒", "气愤", "怨恨", "憎恨", "反感", "烦躁"] },
+    orange: { name: "橙色区", emotions: ["喜悦", "感动", "爱", "快乐", "感激", "期待"] },
+    green: { name: "绿色区", emotions: ["自豪", "自信", "满意", "冷静"] },
+    grey: { name: "灰色区", emotions: ["担心", "不耐烦", "焦虑", "纠结", "紧张", "矛盾"] },
+    blue: { name: "蓝色区", emotions: ["忧郁", "迷惘", "孤独", "寂寞", "渴望", "怀念"] },
+    purple: { name: "紫色区", emotions: ["灰心", "疲倦", "空白感", "无力感", "被困住", "无聊", "失望", "绝望", "背叛", "恐惧"] },
+    brown: { name: "棕色区", emotions: ["后悔", "内疚", "尴尬", "害羞", "受伤", "同情", "伤心"] },
+  },
+
+  // 我的日记当前选中颜色区
+  myDiaryZone: null,
+
   init() {
     this.loadData();
     this.renderTabs();
@@ -620,6 +634,183 @@ ${historySummary}
     this.showToast("觉察日记已保存");
   },
 
+  // ========== 我的日记 ==========
+  openMyDiaryWithZone(zone) {
+    // 切换到日记 Tab 和我的日记模式
+    this.switchTab("diary");
+    document.querySelectorAll(".diary-mode-btn").forEach(b => b.classList.remove("active"));
+    const myBtn = document.querySelector('.diary-mode-btn[data-mode="my"]');
+    if (myBtn) myBtn.classList.add("active");
+    document.querySelectorAll(".diary-mode-content").forEach(c => c.classList.remove("active"));
+    document.getElementById("my-diary").classList.add("active");
+    this.selectMyDiaryZone(zone);
+  },
+
+  selectMyDiaryZone(zone) {
+    this.myDiaryZone = zone;
+    document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(el => {
+      el.classList.toggle("selected", el.dataset.zone === zone);
+    });
+    this.renderMyDiaryEmotionTags(zone);
+  },
+
+  renderMyDiaryEmotionTags(zone) {
+    const container = document.getElementById("my-diary-emotion-tags");
+    if (!container) return;
+    if (!zone) {
+      container.innerHTML = "";
+      return;
+    }
+    const emotions = this.emotionZones[zone]?.emotions || [];
+    container.innerHTML = emotions.map(e => `<span class="emotion-tag">${e}</span>`).join("");
+  },
+
+  saveMyDiary() {
+    const emotionInput = document.getElementById("my-emotion");
+    const needInput = document.getElementById("my-need");
+    const actionInput = document.getElementById("my-action");
+    const emotion = emotionInput.value.trim();
+    const need = needInput.value.trim();
+    const action = actionInput.value.trim();
+
+    if (!emotion && !need && !action) {
+      this.showToast("请至少填写一项");
+      return;
+    }
+
+    const date = new Date().toISOString().slice(0, 10);
+    const zoneName = this.myDiaryZone ? this.emotionZones[this.myDiaryZone].name : "未选择";
+    const title = `${date}-${emotion || "情绪"}-${zoneName}`;
+    const content = `情绪颜色区：${zoneName}\n今天最强烈的情绪：${emotion}\n它可能指向的需求：${need}\n我做的一件小事：${action}`;
+
+    const diary = {
+      id: Date.now(),
+      title,
+      date,
+      source: "my",
+      colorZone: this.myDiaryZone,
+      colorZoneName: zoneName,
+      emotion,
+      need,
+      action,
+      content,
+      feedback: "",
+      createdAt: Date.now(),
+    };
+
+    this.diaries.unshift(diary);
+    this.saveData();
+
+    // 清空输入
+    emotionInput.value = "";
+    needInput.value = "";
+    actionInput.value = "";
+    this.selectMyDiaryZone(null);
+
+    // 显示放松入口
+    document.getElementById("relax-section").style.display = "block";
+
+    this.renderDiaries();
+    this.showToast("我的日记已保存 🌙");
+  },
+
+  // ========== 放松流程：6 秒镇定 + 催眠音频 ==========
+  startRelaxFlow() {
+    const overlay = document.getElementById("relax-overlay");
+    const calmSection = document.getElementById("calm-section");
+    const audioSection = document.getElementById("audio-section");
+    const audioFallback = document.getElementById("audio-fallback");
+    const calmProgress = document.getElementById("calm-progress");
+    const calmText = document.getElementById("calm-text");
+    const calmStep = document.getElementById("calm-step");
+
+    overlay.style.display = "flex";
+    calmSection.style.display = "block";
+    audioSection.style.display = "none";
+    audioFallback.style.display = "none";
+
+    // 提前开始加载音频
+    const audio = document.getElementById("hypnosis-audio");
+    if (audio) {
+      audio.preload = "auto";
+      audio.load();
+    }
+
+    const steps = [
+      "注意你身体的哪个部位能感受到这种情绪",
+      "命名情感。你是否感到愤怒、不耐烦或恐惧？",
+      "为自己争取一些时间。深呼吸、数到 10、暂停对话",
+    ];
+    let seconds = 6;
+    calmText.textContent = seconds;
+    calmProgress.style.width = "0%";
+    calmStep.textContent = steps[0];
+
+    const timer = setInterval(() => {
+      seconds--;
+      calmText.textContent = seconds;
+      calmProgress.style.width = `${((6 - seconds) / 6) * 100}%`;
+      if (seconds <= 4) calmStep.textContent = steps[1];
+      if (seconds <= 2) calmStep.textContent = steps[2];
+
+      if (seconds <= 0) {
+        clearInterval(timer);
+        calmSection.style.display = "none";
+        audioSection.style.display = "block";
+        this.playHypnosisAudio();
+      }
+    }, 1000);
+
+    this._relaxTimer = timer;
+  },
+
+  closeRelaxOverlay() {
+    const overlay = document.getElementById("relax-overlay");
+    overlay.style.display = "none";
+    this.pauseHypnosisAudio();
+    if (this._relaxTimer) {
+      clearInterval(this._relaxTimer);
+      this._relaxTimer = null;
+    }
+  },
+
+  toggleHypnosisAudio() {
+    const audio = document.getElementById("hypnosis-audio");
+    if (!audio) return;
+    if (audio.paused) {
+      this.playHypnosisAudio();
+    } else {
+      this.pauseHypnosisAudio();
+    }
+  },
+
+  playHypnosisAudio() {
+    const audio = document.getElementById("hypnosis-audio");
+    const btn = document.getElementById("audio-play-pause");
+    const fallback = document.getElementById("audio-fallback");
+    if (!audio) return;
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        if (btn) btn.textContent = "暂停";
+        if (fallback) fallback.style.display = "none";
+      }).catch((err) => {
+        console.error("音频自动播放失败", err);
+        if (btn) btn.textContent = "播放";
+        if (fallback) fallback.style.display = "block";
+      });
+    }
+  },
+
+  pauseHypnosisAudio() {
+    const audio = document.getElementById("hypnosis-audio");
+    const btn = document.getElementById("audio-play-pause");
+    if (!audio) return;
+    audio.pause();
+    if (btn) btn.textContent = "播放";
+  },
+
   async callAIFeedback(content) {
     const today = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
     const prompt = `这是 ${today} 的觉察日记。你的首要任务不是分析、归类、给理论标签。
@@ -676,7 +867,15 @@ ${content}`;
 
       const hasSteps = d.steps && d.steps.event;
       let contentHtml = "";
-      if (hasSteps) {
+      if (d.source === "my") {
+        contentHtml = `
+          <div class="diary-my-mini">
+            <div><span class="s-label">颜色区</span> ${this.escapeHtml(d.colorZoneName || "")}</div>
+            <div><span class="s-label">情绪</span> ${this.escapeHtml(d.emotion || "")}</div>
+            <div><span class="s-label">需求</span> ${this.escapeHtml(d.need || "")}</div>
+            <div><span class="s-label">行动</span> ${this.escapeHtml(d.action || "")}</div>
+          </div>`;
+      } else if (hasSteps) {
         contentHtml = `
           <div class="diary-steps-mini">
             <div><span class="s-label">情绪事件</span> ${this.escapeHtml(d.steps.event || "")}</div>
@@ -723,8 +922,11 @@ ${content}`;
     const d = this.diaries.find(dd => dd.id === id);
     if (!d) return;
     const filename = (d.title || "觉察日记").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
-    let text = `标题：${d.title}\n日期：${d.date}\n类型：${d.source === "guided" ? "引导式觉察" : "自由书写"}\n\n`;
-    if (d.steps) {
+    const sourceLabel = d.source === "guided" ? "引导式觉察" : d.source === "my" ? "我的日记" : "自由书写";
+    let text = `标题：${d.title}\n日期：${d.date}\n类型：${sourceLabel}\n\n`;
+    if (d.source === "my") {
+      text += `颜色区：${d.colorZoneName || ""}\n情绪：${d.emotion || ""}\n需求：${d.need || ""}\n行动：${d.action || ""}\n\n`;
+    } else if (d.steps) {
       text += `【情绪事件】\n${d.steps.event}\n\n【身心感受】\n${d.steps.feeling}\n\n【防御方式】\n${d.steps.defense}\n\n【延展模型】\n${d.steps.extend}\n\n`;
     } else {
       text += `${d.content}\n\n`;
@@ -738,8 +940,11 @@ ${content}`;
     // 一个一个导出
     for (const d of this.diaries) {
       const filename = (d.title || "觉察日记").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
-      let text = `标题：${d.title}\n日期：${d.date}\n类型：${d.source === "guided" ? "引导式觉察" : "自由书写"}\n\n`;
-      if (d.steps) {
+      const sourceLabel = d.source === "guided" ? "引导式觉察" : d.source === "my" ? "我的日记" : "自由书写";
+      let text = `标题：${d.title}\n日期：${d.date}\n类型：${sourceLabel}\n\n`;
+      if (d.source === "my") {
+        text += `颜色区：${d.colorZoneName || ""}\n情绪：${d.emotion || ""}\n需求：${d.need || ""}\n行动：${d.action || ""}\n\n`;
+      } else if (d.steps) {
         text += `【情绪事件】\n${d.steps.event}\n\n【身心感受】\n${d.steps.feeling}\n\n【防御方式】\n${d.steps.defense}\n\n【延展模型】\n${d.steps.extend}\n\n`;
       } else {
         text += `${d.content}\n\n`;
@@ -1170,6 +1375,8 @@ ${obsText}${ctInfo}
           document.getElementById("guided-diary").classList.add("active");
           this.loadGuidedDraft();
           this.renderGuidedStep();
+        } else if (mode === "my") {
+          document.getElementById("my-diary").classList.add("active");
         } else {
           document.getElementById("free-diary").classList.add("active");
         }
@@ -1198,6 +1405,47 @@ ${obsText}${ctInfo}
 
     // 导出
     document.getElementById("export-all-btn").addEventListener("click", () => this.exportAllDiaries());
+
+    // ===== 我的日记事件 =====
+    const saveMyDiaryBtn = document.getElementById("save-my-diary-btn");
+    if (saveMyDiaryBtn) saveMyDiaryBtn.addEventListener("click", () => this.saveMyDiary());
+
+    const startRelaxBtn = document.getElementById("start-relax-btn");
+    if (startRelaxBtn) startRelaxBtn.addEventListener("click", () => this.startRelaxFlow());
+
+    const audioPlayPause = document.getElementById("audio-play-pause");
+    if (audioPlayPause) audioPlayPause.addEventListener("click", () => this.toggleHypnosisAudio());
+
+    const audioManualPlay = document.getElementById("audio-manual-play");
+    if (audioManualPlay) audioManualPlay.addEventListener("click", () => this.playHypnosisAudio());
+
+    const relaxClose = document.getElementById("relax-close");
+    if (relaxClose) relaxClose.addEventListener("click", () => this.closeRelaxOverlay());
+
+    // 首页情绪颜色扫描
+    document.querySelectorAll("#chat-mood-wheel .mood-dot").forEach(dot => {
+      dot.addEventListener("click", (e) => {
+        const zone = e.target.dataset.zone;
+        this.switchTab("diary");
+        setTimeout(() => this.openMyDiaryWithZone(zone), 100);
+      });
+    });
+
+    // 我的日记情绪颜色区选择
+    document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(zone => {
+      zone.addEventListener("click", (e) => {
+        const zoneKey = e.currentTarget.dataset.zone;
+        this.selectMyDiaryZone(zoneKey);
+      });
+    });
+
+    // 我的日记情绪标签选择
+    document.getElementById("my-diary-emotion-tags").addEventListener("click", (e) => {
+      if (e.target.classList.contains("emotion-tag")) {
+        const input = document.getElementById("my-emotion");
+        input.value = e.target.textContent;
+      }
+    });
 
     // ===== 识人板块事件 =====
     document.getElementById("add-person-btn").addEventListener("click", () => this.showPersonForm());
@@ -1293,7 +1541,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=7").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=8").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {

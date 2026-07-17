@@ -1230,6 +1230,8 @@ html, body {
   display: flex;
   gap: 10px;
 }
+
+::-webkit-scrollbar {
   width: 4px;
 }
 
@@ -1238,3 +1240,375 @@ html, body {
   border-radius: 2px;
 }
 
+
+/* ========== 新增：我的日记 + 情绪颜色扫描 + 放松流程 ========== */
+
+/* 首页情绪颜色扫描卡片 */
+.mood-scan-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 12px 16px;
+  border: 1px solid var(--border);
+}
+
+.mood-scan-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.mood-scan-subtitle {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 12px;
+}
+
+.mood-scan-wheel {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mood-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.mood-dot:active {
+  transform: scale(0.92);
+}
+
+.mood-dot[data-zone="red"] { background: #e74c3c; }
+.mood-dot[data-zone="orange"] { background: #f39c12; }
+.mood-dot[data-zone="green"] { background: #27ae60; }
+.mood-dot[data-zone="grey"] { background: #7f8c8d; }
+.mood-dot[data-zone="blue"] { background: #3498db; }
+.mood-dot[data-zone="purple"] { background: #9b59b6; }
+.mood-dot[data-zone="brown"] { background: #8b5a2b; }
+
+/* 我的日记 */
+.my-diary-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 16px;
+  border: 1px solid var(--border);
+}
+
+.my-diary-card h3 {
+  margin: 0 0 6px 0;
+  color: var(--primary);
+  font-size: 17px;
+}
+
+.my-diary-hint {
+  font-size: 13px;
+  color: var(--text-light);
+  margin: 0 0 16px 0;
+  line-height: 1.5;
+}
+
+.my-diary-section {
+  margin-bottom: 18px;
+}
+
+.my-diary-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.my-diary-subtitle {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 10px;
+}
+
+.mood-wheel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.mood-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  background: #faf8f5;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mood-zone.selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.zone-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.zone-name {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.emotion-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  min-height: 0;
+}
+
+.emotion-tag {
+  padding: 6px 12px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.emotion-tag:active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.my-diary-input-row {
+  margin-bottom: 12px;
+}
+
+.my-diary-input-row label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.my-diary-input-row input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.my-diary-input-row input:focus {
+  outline: none;
+  border-color: var(--primary-light);
+}
+
+/* 放松入口 */
+.relax-section {
+  background: linear-gradient(135deg, #f8f4ef 0%, #f0e8df 100%);
+  border-radius: 16px;
+  padding: 18px;
+  margin: 16px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.relax-success {
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.btn-relax {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.relax-hint {
+  font-size: 12px;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+
+/* 放松浮层 */
+.relax-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.relax-content {
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 28px 24px;
+  width: 100%;
+  max-width: 360px;
+  position: relative;
+  text-align: center;
+}
+
+.relax-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-light);
+  cursor: pointer;
+}
+
+/* 6 秒镇定 */
+.calm-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 24px;
+}
+
+.calm-circle {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  margin: 0 auto 24px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calm-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0%;
+  height: 100%;
+  background: var(--primary);
+  opacity: 0.2;
+  transition: width 1s linear;
+}
+
+.calm-text {
+  position: relative;
+  font-size: 48px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.calm-step {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.7;
+  min-height: 48px;
+}
+
+/* 音频播放 */
+.audio-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 20px;
+}
+
+.audio-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 60px;
+  margin-bottom: 20px;
+}
+
+.audio-wave {
+  width: 6px;
+  background: var(--primary);
+  border-radius: 3px;
+  animation: wave 1s ease-in-out infinite;
+}
+
+.audio-wave:nth-child(1) { height: 20px; animation-delay: 0s; }
+.audio-wave:nth-child(2) { height: 35px; animation-delay: 0.1s; }
+.audio-wave:nth-child(3) { height: 50px; animation-delay: 0.2s; }
+.audio-wave:nth-child(4) { height: 35px; animation-delay: 0.3s; }
+.audio-wave:nth-child(5) { height: 20px; animation-delay: 0.4s; }
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.6); }
+  50% { transform: scaleY(1); }
+}
+
+.audio-controls {
+  margin-bottom: 12px;
+}
+
+.audio-hint {
+  font-size: 13px;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+
+.audio-fallback {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8e8e8;
+  border-radius: 10px;
+  color: #b54545;
+  font-size: 13px;
+}
+
+.audio-fallback p {
+  margin: 0 0 10px 0;
+}
+
+/* 我的日记在列表中的展示 */
+.diary-my-mini {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+.diary-my-mini .s-label {
+  display: inline;
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 600;
+  margin-right: 4px;
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "xiao-shu-app-v6";
+const CACHE_NAME = "xiao-shu-app-v7";
 const ASSETS = [
   "/xiao-shu-app/index.html",
   "/xiao-shu-app/style.css",
@@ -8,6 +8,7 @@ const ASSETS = [
   "/xiao-shu-app/manifest.json",
   "/xiao-shu-app/icon-192.png",
   "/xiao-shu-app/icon-512.png",
+  "/xiao-shu-app/audio/hypnosis.mp3",
 ];
 
 self.addEventListener("install", (event) => {

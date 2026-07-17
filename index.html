@@ -9,7 +9,7 @@
   <title>小树觉察室</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
   <div id="app">
@@ -24,6 +24,22 @@
       <div class="chat-toolbar">
         <button id="clear-chat-btn" class="btn-text">清空对话</button>
       </div>
+
+      <!-- 情绪颜色扫描快捷入口 -->
+      <div class="mood-scan-card">
+        <div class="mood-scan-title">🎨 情绪颜色扫描</div>
+        <div class="mood-scan-subtitle">你现在大概落在哪个颜色区？</div>
+        <div class="mood-scan-wheel" id="chat-mood-wheel">
+          <span class="mood-dot" data-zone="red" title="红色区">红</span>
+          <span class="mood-dot" data-zone="orange" title="橙色区">橙</span>
+          <span class="mood-dot" data-zone="green" title="绿色区">绿</span>
+          <span class="mood-dot" data-zone="grey" title="灰色区">灰</span>
+          <span class="mood-dot" data-zone="blue" title="蓝色区">蓝</span>
+          <span class="mood-dot" data-zone="purple" title="紫色区">紫</span>
+          <span class="mood-dot" data-zone="brown" title="棕色区">棕</span>
+        </div>
+      </div>
+
       <div id="chat-messages" class="chat-messages"></div>
       <div id="chat-loading" class="chat-loading" style="display: none;">
         <span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -40,6 +56,7 @@
       <div class="diary-mode-tabs">
         <button class="diary-mode-btn active" data-mode="guided">🧭 引导式觉察</button>
         <button class="diary-mode-btn" data-mode="free">✏️ 自由书写</button>
+        <button class="diary-mode-btn" data-mode="my">📔 我的日记</button>
       </div>
 
       <!-- 引导式觉察 -->
@@ -88,6 +105,75 @@
           <textarea id="diary-content" placeholder="今天发生了什么？你有什么情绪？试着描述一下..." rows="6"></textarea>
           <div id="diary-loading" class="diary-loading" style="display: none;">小树正在读你的日记...</div>
           <button id="save-diary-btn" class="btn-primary">保存并获取小树回应</button>
+        </div>
+      </div>
+
+      <!-- 我的日记 -->
+      <div id="my-diary" class="diary-mode-content">
+        <div class="my-diary-card">
+          <h3>📔 我的日记</h3>
+          <p class="my-diary-hint">睡前或固定时间，花 5 分钟记录今天的情绪。</p>
+
+          <div class="my-diary-section">
+            <label class="my-diary-label">🎨 情绪颜色扫描</label>
+            <div class="my-diary-subtitle">你现在大概落在哪个颜色区？</div>
+            <div class="mood-wheel" id="my-diary-mood-wheel">
+              <div class="mood-zone" data-zone="red">
+                <span class="zone-dot" style="background:#e74c3c;"></span>
+                <span class="zone-name">红色区</span>
+              </div>
+              <div class="mood-zone" data-zone="orange">
+                <span class="zone-dot" style="background:#f39c12;"></span>
+                <span class="zone-name">橙色区</span>
+              </div>
+              <div class="mood-zone" data-zone="green">
+                <span class="zone-dot" style="background:#27ae60;"></span>
+                <span class="zone-name">绿色区</span>
+              </div>
+              <div class="mood-zone" data-zone="grey">
+                <span class="zone-dot" style="background:#7f8c8d;"></span>
+                <span class="zone-name">灰色区</span>
+              </div>
+              <div class="mood-zone" data-zone="blue">
+                <span class="zone-dot" style="background:#3498db;"></span>
+                <span class="zone-name">蓝色区</span>
+              </div>
+              <div class="mood-zone" data-zone="purple">
+                <span class="zone-dot" style="background:#9b59b6;"></span>
+                <span class="zone-name">紫色区</span>
+              </div>
+              <div class="mood-zone" data-zone="brown">
+                <span class="zone-dot" style="background:#8b5a2b;"></span>
+                <span class="zone-name">棕色区</span>
+              </div>
+            </div>
+            <div class="emotion-tags" id="my-diary-emotion-tags"></div>
+          </div>
+
+          <div class="my-diary-section">
+            <label class="my-diary-label">📝 三行情绪容器</label>
+            <div class="my-diary-input-row">
+              <label>今天最强烈的情绪：</label>
+              <input type="text" id="my-emotion" placeholder="例如：焦虑、烦躁、感动">
+            </div>
+            <div class="my-diary-input-row">
+              <label>它可能指向的需求：</label>
+              <input type="text" id="my-need" placeholder="例如：确定感、被理解、休息">
+            </div>
+            <div class="my-diary-input-row">
+              <label>我做的一件小事：</label>
+              <input type="text" id="my-action" placeholder="例如：深呼吸三次、写下清单">
+            </div>
+          </div>
+
+          <button id="save-my-diary-btn" class="btn-primary">保存日记</button>
+        </div>
+
+        <!-- 放松流程 -->
+        <div id="relax-section" class="relax-section" style="display:none;">
+          <div class="relax-success">✅ 日记已保存</div>
+          <button id="start-relax-btn" class="btn-relax">🌙 开始放松</button>
+          <p class="relax-hint">点击后将进行 6 秒镇定，随后播放小树催眠音频。</p>
         </div>
       </div>
 
@@ -210,11 +296,49 @@
 
     <!-- Toast -->
     <div id="toast" class="toast"></div>
+
+    <!-- 放松流程浮层：6 秒镇定 + 催眠音频 -->
+    <div id="relax-overlay" class="relax-overlay" style="display:none;">
+      <div class="relax-content">
+        <button id="relax-close" class="relax-close">×</button>
+
+        <!-- 6 秒镇定 -->
+        <div id="calm-section" class="calm-section">
+          <div class="calm-title">6 秒镇定</div>
+          <div class="calm-circle">
+            <div class="calm-progress" id="calm-progress"></div>
+            <div class="calm-text" id="calm-text">6</div>
+          </div>
+          <div class="calm-step" id="calm-step">注意你身体的哪个部位能感受到这种情绪</div>
+        </div>
+
+        <!-- 音频播放 -->
+        <div id="audio-section" class="audio-section" style="display:none;">
+          <div class="audio-title">🌙 小树催眠音频</div>
+          <div class="audio-visual">
+            <span class="audio-wave"></span>
+            <span class="audio-wave"></span>
+            <span class="audio-wave"></span>
+            <span class="audio-wave"></span>
+            <span class="audio-wave"></span>
+          </div>
+          <audio id="hypnosis-audio" src="audio/hypnosis.mp3" preload="none"></audio>
+          <div class="audio-controls">
+            <button id="audio-play-pause" class="btn-primary" style="width:auto;padding:12px 32px;">暂停</button>
+          </div>
+          <div class="audio-hint">戴上耳机，闭上眼睛，慢慢放松。</div>
+          <div id="audio-fallback" class="audio-fallback" style="display:none;">
+            <p>音频未能自动播放，请点击下方按钮：</p>
+            <button id="audio-manual-play" class="btn-primary" style="width:auto;padding:12px 32px;">播放音频</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script src="config.js?v=8"></script>
-  <script src="xiaoshu-prompt.js?v=8"></script>
-  <script src="app.js?v=11"></script>
+  <script src="config.js?v=9"></script>
+  <script src="xiaoshu-prompt.js?v=9"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
 
