@@ -3,7 +3,8 @@
 const App = {
   currentMode: "normal",
   currentChat: [],
-  diaries: [],
+  diaries: [],        // 觉察日记
+  moodDiaries: [],    // 情绪日记
   activeTab: "chat",
   // 引导式觉察状态
   guided: {
@@ -26,7 +27,7 @@ const App = {
     brown: { name: "棕色区", emotions: ["后悔", "内疚", "尴尬", "害羞", "受伤", "同情", "伤心"] },
   },
 
-  // 我的日记当前选中颜色区
+  // 情绪日记当前选中颜色区
   myDiaryZone: null,
 
   init() {
@@ -34,6 +35,7 @@ const App = {
     this.renderTabs();
     this.renderChat();
     this.renderDiaries();
+    this.renderMoodDiaries();
     this.renderSettings();
     this.setupEventListeners();
     this.setMode("xiaoshu");
@@ -51,12 +53,23 @@ const App = {
     try {
       const chat = localStorage.getItem("xs_chat_history");
       const diaries = localStorage.getItem("xs_diaries");
+      const moodDiaries = localStorage.getItem("xs_mood_diaries");
       const mode = localStorage.getItem("xs_mode");
       const people = localStorage.getItem("xs_people");
       if (chat) this.currentChat = JSON.parse(chat);
       if (diaries) this.diaries = JSON.parse(diaries);
+      if (moodDiaries) this.moodDiaries = JSON.parse(moodDiaries);
       if (mode) this.currentMode = mode;
       if (people) this.people = JSON.parse(people);
+
+      // 迁移：旧版本中 source 为 "my" 的情绪日记在 xs_diaries 里，迁移到 xs_mood_diaries
+      const migrated = this.diaries.filter(d => d.source === "my");
+      if (migrated.length > 0) {
+        this.moodDiaries = [...migrated, ...this.moodDiaries];
+        this.diaries = this.diaries.filter(d => d.source !== "my");
+        this.saveData();
+        console.log(`已迁移 ${migrated.length} 条情绪日记到新存储`);
+      }
     } catch (e) {
       console.error("加载数据失败", e);
     }
@@ -66,6 +79,7 @@ const App = {
     try {
       localStorage.setItem("xs_chat_history", JSON.stringify(this.currentChat.slice(-CONFIG.MAX_HISTORY)));
       localStorage.setItem("xs_diaries", JSON.stringify(this.diaries));
+      localStorage.setItem("xs_mood_diaries", JSON.stringify(this.moodDiaries));
       localStorage.setItem("xs_mode", this.currentMode);
       localStorage.setItem("xs_people", JSON.stringify(this.people));
     } catch (e) {
@@ -598,43 +612,7 @@ ${historySummary}
     }, 300);
   },
 
-  // ========== 自由书写日记 ==========
-  async saveDiary() {
-    const titleInput = document.getElementById("diary-title");
-    const contentInput = document.getElementById("diary-content");
-    const title = titleInput.value.trim();
-    const content = contentInput.value.trim();
-    if (!content) { this.showToast("请先写下今天的觉察"); return; }
-
-    this.showDiaryLoading(true);
-    let feedback = "";
-    try {
-      feedback = await this.callAIFeedback(content);
-    } catch (err) {
-      console.error(err);
-      feedback = "（小树反馈获取失败，你可以稍后再试）";
-    }
-
-    const diary = {
-      id: Date.now(),
-      title: title || new Date().toLocaleDateString("zh-CN"),
-      date: new Date().toISOString().slice(0, 10),
-      source: "free",
-      content,
-      feedback,
-      createdAt: Date.now(),
-    };
-
-    this.diaries.unshift(diary);
-    this.saveData();
-    titleInput.value = "";
-    contentInput.value = "";
-    this.renderDiaries();
-    this.showDiaryLoading(false);
-    this.showToast("觉察日记已保存");
-  },
-
-  // ========== 我的日记 ==========
+  // ========== 情绪日记 ==========
   openMyDiaryWithZone(zone) {
     // 切换到日记 Tab 和我的日记模式
     this.switchTab("diary");
@@ -666,14 +644,16 @@ ${historySummary}
   },
 
   saveMyDiary() {
+    const bodyInput = document.getElementById("my-body");
     const emotionInput = document.getElementById("my-emotion");
     const needInput = document.getElementById("my-need");
     const actionInput = document.getElementById("my-action");
+    const body = (bodyInput?.value || "").trim();
     const emotion = emotionInput.value.trim();
     const need = needInput.value.trim();
     const action = actionInput.value.trim();
 
-    if (!emotion && !need && !action) {
+    if (!emotion && !need && !action && !body) {
       this.showToast("请至少填写一项");
       return;
     }
@@ -681,7 +661,7 @@ ${historySummary}
     const date = new Date().toISOString().slice(0, 10);
     const zoneName = this.myDiaryZone ? this.emotionZones[this.myDiaryZone].name : "未选择";
     const title = `${date}-${emotion || "情绪"}-${zoneName}`;
-    const content = `情绪颜色区：${zoneName}\n今天最强烈的情绪：${emotion}\n它可能指向的需求：${need}\n我做的一件小事：${action}`;
+    const content = `身体感受：${body || "未记录"}\n情绪颜色区：${zoneName}\n今天最强烈的情绪：${emotion || "未记录"}\n它可能指向的需求：${need || "未记录"}\n我做的一件小事：${action || "未记录"}`;
 
     const diary = {
       id: Date.now(),
@@ -690,6 +670,7 @@ ${historySummary}
       source: "my",
       colorZone: this.myDiaryZone,
       colorZoneName: zoneName,
+      body,
       emotion,
       need,
       action,
@@ -698,10 +679,11 @@ ${historySummary}
       createdAt: Date.now(),
     };
 
-    this.diaries.unshift(diary);
+    this.moodDiaries.unshift(diary);
     this.saveData();
 
     // 清空输入
+    if (bodyInput) bodyInput.value = "";
     emotionInput.value = "";
     needInput.value = "";
     actionInput.value = "";
@@ -710,11 +692,11 @@ ${historySummary}
     // 显示放松入口
     document.getElementById("relax-section").style.display = "block";
 
-    this.renderDiaries();
-    this.showToast("我的日记已保存 🌙");
+    this.renderMoodDiaries();
+    this.showToast("情绪日记已保存 🌙");
   },
 
-  // ========== 放松流程：6 秒镇定 + 催眠音频 ==========
+  // ========== 放松流程：10 秒镇定 + 催眠音频 ==========
   startRelaxFlow() {
     const overlay = document.getElementById("relax-overlay");
     const calmSection = document.getElementById("calm-section");
@@ -741,7 +723,8 @@ ${historySummary}
       "命名情感。你是否感到愤怒、不耐烦或恐惧？",
       "为自己争取一些时间。深呼吸、数到 10、暂停对话",
     ];
-    let seconds = 6;
+    const total = 10;
+    let seconds = total;
     calmText.textContent = seconds;
     calmProgress.style.width = "0%";
     calmStep.textContent = steps[0];
@@ -749,9 +732,9 @@ ${historySummary}
     const timer = setInterval(() => {
       seconds--;
       calmText.textContent = seconds;
-      calmProgress.style.width = `${((6 - seconds) / 6) * 100}%`;
-      if (seconds <= 4) calmStep.textContent = steps[1];
-      if (seconds <= 2) calmStep.textContent = steps[2];
+      calmProgress.style.width = `${((total - seconds) / total) * 100}%`;
+      if (seconds <= 7) calmStep.textContent = steps[1];
+      if (seconds <= 4) calmStep.textContent = steps[2];
 
       if (seconds <= 0) {
         clearInterval(timer);
@@ -849,8 +832,8 @@ ${content}`;
   },
 
   renderDiaries() {
-    const list = document.getElementById("diary-list");
-    const countEl = document.getElementById("diary-count");
+    const list = document.getElementById("guided-diary-list");
+    const countEl = document.getElementById("guided-diary-count");
     if (!list) return;
     if (countEl) countEl.textContent = `共 ${this.diaries.length} 篇`;
 
@@ -867,15 +850,7 @@ ${content}`;
 
       const hasSteps = d.steps && d.steps.event;
       let contentHtml = "";
-      if (d.source === "my") {
-        contentHtml = `
-          <div class="diary-my-mini">
-            <div><span class="s-label">颜色区</span> ${this.escapeHtml(d.colorZoneName || "")}</div>
-            <div><span class="s-label">情绪</span> ${this.escapeHtml(d.emotion || "")}</div>
-            <div><span class="s-label">需求</span> ${this.escapeHtml(d.need || "")}</div>
-            <div><span class="s-label">行动</span> ${this.escapeHtml(d.action || "")}</div>
-          </div>`;
-      } else if (hasSteps) {
+      if (hasSteps) {
         contentHtml = `
           <div class="diary-steps-mini">
             <div><span class="s-label">情绪事件</span> ${this.escapeHtml(d.steps.event || "")}</div>
@@ -902,8 +877,57 @@ ${content}`;
             <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
           </div>
           <div class="diary-card-actions">
-            <button class="btn-text" onclick="App.exportDiary(${d.id})">📤 导出</button>
-            <button class="btn-text danger" onclick="App.deleteDiary(${d.id})">删除</button>
+            <button class="btn-text" onclick="App.exportGuidedDiary(${d.id})">📤 导出</button>
+            <button class="btn-text danger" onclick="App.deleteGuidedDiary(${d.id})">删除</button>
+          </div>
+        </div>
+      `;
+
+      const header = card.querySelector(".diary-header");
+      header.addEventListener("click", () => {
+        card.classList.toggle("expanded");
+      });
+
+      list.appendChild(card);
+    });
+  },
+
+  renderMoodDiaries() {
+    const list = document.getElementById("mood-diary-list");
+    const countEl = document.getElementById("mood-diary-count");
+    if (!list) return;
+    if (countEl) countEl.textContent = `共 ${this.moodDiaries.length} 篇`;
+
+    if (this.moodDiaries.length === 0) {
+      list.innerHTML = '<div class="empty">还没有情绪日记，完成一次冥想式 check-in 吧 🌙</div>';
+      return;
+    }
+
+    list.innerHTML = "";
+    this.moodDiaries.forEach((d) => {
+      const card = document.createElement("div");
+      card.className = "diary-card";
+      card.dataset.id = String(d.id);
+
+      card.innerHTML = `
+        <div class="diary-header">
+          <div class="diary-header-main">
+            <h4>${this.escapeHtml(d.title)}</h4>
+            <span class="diary-date">${new Date(d.createdAt).toLocaleString("zh-CN")}</span>
+          </div>
+          <span class="expand-icon">▶</span>
+        </div>
+        <div class="diary-body">
+          <div class="diary-my-mini">
+            <div><span class="s-label">身体感受</span> ${this.escapeHtml(d.body || "未记录")}</div>
+            <div><span class="s-label">颜色区</span> ${this.escapeHtml(d.colorZoneName || "未选择")}</div>
+            <div><span class="s-label">情绪</span> ${this.escapeHtml(d.emotion || "未记录")}</div>
+            <div><span class="s-label">需求</span> ${this.escapeHtml(d.need || "未记录")}</div>
+            <div><span class="s-label">行动</span> ${this.escapeHtml(d.action || "未记录")}</div>
+          </div>
+          <div class="diary-card-actions">
+            <button class="btn-text" onclick="App.exportMoodDiary(${d.id})">📤 导出</button>
+            <button class="btn-text danger" onclick="App.deleteMoodDiary(${d.id})">删除</button>
           </div>
         </div>
       `;
@@ -918,15 +942,12 @@ ${content}`;
   },
 
   // ========== 导出 ==========
-  exportDiary(id) {
+  exportGuidedDiary(id) {
     const d = this.diaries.find(dd => dd.id === id);
     if (!d) return;
     const filename = (d.title || "觉察日记").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
-    const sourceLabel = d.source === "guided" ? "引导式觉察" : d.source === "my" ? "我的日记" : "自由书写";
-    let text = `标题：${d.title}\n日期：${d.date}\n类型：${sourceLabel}\n\n`;
-    if (d.source === "my") {
-      text += `颜色区：${d.colorZoneName || ""}\n情绪：${d.emotion || ""}\n需求：${d.need || ""}\n行动：${d.action || ""}\n\n`;
-    } else if (d.steps) {
+    let text = `标题：${d.title}\n日期：${d.date}\n类型：觉察日记\n\n`;
+    if (d.steps) {
       text += `【情绪事件】\n${d.steps.event}\n\n【身心感受】\n${d.steps.feeling}\n\n【防御方式】\n${d.steps.defense}\n\n【延展模型】\n${d.steps.extend}\n\n`;
     } else {
       text += `${d.content}\n\n`;
@@ -935,24 +956,29 @@ ${content}`;
     this.downloadFile(filename, text);
   },
 
-  exportAllDiaries() {
-    if (this.diaries.length === 0) { this.showToast("没有日记可导出"); return; }
-    // 一个一个导出
+  exportAllGuidedDiaries() {
+    if (this.diaries.length === 0) { this.showToast("没有觉察日记可导出"); return; }
     for (const d of this.diaries) {
-      const filename = (d.title || "觉察日记").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
-      const sourceLabel = d.source === "guided" ? "引导式觉察" : d.source === "my" ? "我的日记" : "自由书写";
-      let text = `标题：${d.title}\n日期：${d.date}\n类型：${sourceLabel}\n\n`;
-      if (d.source === "my") {
-        text += `颜色区：${d.colorZoneName || ""}\n情绪：${d.emotion || ""}\n需求：${d.need || ""}\n行动：${d.action || ""}\n\n`;
-      } else if (d.steps) {
-        text += `【情绪事件】\n${d.steps.event}\n\n【身心感受】\n${d.steps.feeling}\n\n【防御方式】\n${d.steps.defense}\n\n【延展模型】\n${d.steps.extend}\n\n`;
-      } else {
-        text += `${d.content}\n\n`;
-      }
-      text += `【🌱 小树回应】\n${d.feedback}\n`;
-      this.downloadFile(filename, text);
+      this.exportGuidedDiary(d.id);
     }
-    this.showToast(`已导出 ${this.diaries.length} 篇日记`);
+    this.showToast(`已导出 ${this.diaries.length} 篇觉察日记`);
+  },
+
+  exportMoodDiary(id) {
+    const d = this.moodDiaries.find(dd => dd.id === id);
+    if (!d) return;
+    const filename = (d.title || "情绪日记").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
+    let text = `标题：${d.title}\n日期：${d.date}\n类型：情绪日记\n\n`;
+    text += `身体感受：${d.body || "未记录"}\n颜色区：${d.colorZoneName || "未选择"}\n情绪：${d.emotion || "未记录"}\n需求：${d.need || "未记录"}\n行动：${d.action || "未记录"}\n\n`;
+    this.downloadFile(filename, text);
+  },
+
+  exportAllMoodDiaries() {
+    if (this.moodDiaries.length === 0) { this.showToast("没有情绪日记可导出"); return; }
+    for (const d of this.moodDiaries) {
+      this.exportMoodDiary(d.id);
+    }
+    this.showToast(`已导出 ${this.moodDiaries.length} 篇情绪日记`);
   },
 
   downloadFile(filename, text) {
@@ -968,19 +994,20 @@ ${content}`;
     URL.revokeObjectURL(url);
   },
 
-  showDiaryLoading(show) {
-    const btn = document.getElementById("save-diary-btn");
-    const loading = document.getElementById("diary-loading");
-    if (btn) btn.disabled = show;
-    if (loading) loading.style.display = show ? "block" : "none";
-  },
-
-  deleteDiary(id) {
-    if (!confirm("确定删除这条日记吗？")) return;
+  deleteGuidedDiary(id) {
+    if (!confirm("确定删除这条觉察日记吗？")) return;
     this.diaries = this.diaries.filter((d) => d.id !== id);
     this.saveData();
     this.renderDiaries();
-    this.showToast("日记已删除");
+    this.showToast("觉察日记已删除");
+  },
+
+  deleteMoodDiary(id) {
+    if (!confirm("确定删除这条情绪日记吗？")) return;
+    this.moodDiaries = this.moodDiaries.filter((d) => d.id !== id);
+    this.saveData();
+    this.renderMoodDiaries();
+    this.showToast("情绪日记已删除");
   },
 
   // ========== 设置 ==========
@@ -1023,11 +1050,13 @@ ${content}`;
     if (!confirm("确定清空所有对话、日记和设置吗？此操作不可恢复。")) return;
     localStorage.removeItem("xs_chat_history");
     localStorage.removeItem("xs_diaries");
+    localStorage.removeItem("xs_mood_diaries");
     localStorage.removeItem("xs_mode");
     localStorage.removeItem("xs_people");
     localStorage.removeItem("xs_user_config");
     this.currentChat = [];
     this.diaries = [];
+    this.moodDiaries = [];
     this.people = [];
     this.currentMode = "xiaoshu";
     this.saveData();
@@ -1322,11 +1351,12 @@ ${obsText}${ctInfo}
     });
     document.getElementById(`nav-${tab}`).classList.add("active");
 
-    // 切换到日记页时加载草稿
+    // 切换到日记页时加载草稿并刷新列表
     if (tab === "diary") {
       this.loadGuidedDraft();
       this.renderGuidedStep();
       this.renderDiaries();
+      this.renderMoodDiaries();
     }
     // 切换到识人页时渲染角色列表
     if (tab === "people") {
@@ -1364,7 +1394,7 @@ ${obsText}${ctInfo}
       if (btn) btn.addEventListener("click", () => this.switchTab(tab));
     });
 
-    // 日记模式切换
+    // 日记模式切换（觉察日记 / 情绪日记）
     document.querySelectorAll(".diary-mode-btn").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const mode = e.target.dataset.mode;
@@ -1375,10 +1405,10 @@ ${obsText}${ctInfo}
           document.getElementById("guided-diary").classList.add("active");
           this.loadGuidedDraft();
           this.renderGuidedStep();
+          this.renderDiaries();
         } else if (mode === "my") {
           document.getElementById("my-diary").classList.add("active");
-        } else {
-          document.getElementById("free-diary").classList.add("active");
+          this.renderMoodDiaries();
         }
       });
     });
@@ -1399,14 +1429,14 @@ ${obsText}${ctInfo}
       this.renderGuidedStep();
     });
 
-    // 自由书写
-    const saveDiaryBtn = document.getElementById("save-diary-btn");
-    if (saveDiaryBtn) saveDiaryBtn.addEventListener("click", () => this.saveDiary());
-
     // 导出
-    document.getElementById("export-all-btn").addEventListener("click", () => this.exportAllDiaries());
+    const exportGuidedBtn = document.getElementById("export-guided-btn");
+    if (exportGuidedBtn) exportGuidedBtn.addEventListener("click", () => this.exportAllGuidedDiaries());
 
-    // ===== 我的日记事件 =====
+    const exportMoodBtn = document.getElementById("export-mood-btn");
+    if (exportMoodBtn) exportMoodBtn.addEventListener("click", () => this.exportAllMoodDiaries());
+
+    // ===== 情绪日记事件 =====
     const saveMyDiaryBtn = document.getElementById("save-my-diary-btn");
     if (saveMyDiaryBtn) saveMyDiaryBtn.addEventListener("click", () => this.saveMyDiary());
 
@@ -1422,16 +1452,7 @@ ${obsText}${ctInfo}
     const relaxClose = document.getElementById("relax-close");
     if (relaxClose) relaxClose.addEventListener("click", () => this.closeRelaxOverlay());
 
-    // 首页情绪颜色扫描
-    document.querySelectorAll("#chat-mood-wheel .mood-dot").forEach(dot => {
-      dot.addEventListener("click", (e) => {
-        const zone = e.target.dataset.zone;
-        this.switchTab("diary");
-        setTimeout(() => this.openMyDiaryWithZone(zone), 100);
-      });
-    });
-
-    // 我的日记情绪颜色区选择
+    // 情绪日记颜色区选择
     document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(zone => {
       zone.addEventListener("click", (e) => {
         const zoneKey = e.currentTarget.dataset.zone;
@@ -1541,7 +1562,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=8").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=9").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {

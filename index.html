@@ -9,7 +9,7 @@
   <title>小树觉察室</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
   <div id="app">
@@ -23,21 +23,6 @@
     <div id="tab-chat" class="tab-content active">
       <div class="chat-toolbar">
         <button id="clear-chat-btn" class="btn-text">清空对话</button>
-      </div>
-
-      <!-- 情绪颜色扫描快捷入口 -->
-      <div class="mood-scan-card">
-        <div class="mood-scan-title">🎨 情绪颜色扫描</div>
-        <div class="mood-scan-subtitle">你现在大概落在哪个颜色区？</div>
-        <div class="mood-scan-wheel" id="chat-mood-wheel">
-          <span class="mood-dot" data-zone="red" title="红色区">红</span>
-          <span class="mood-dot" data-zone="orange" title="橙色区">橙</span>
-          <span class="mood-dot" data-zone="green" title="绿色区">绿</span>
-          <span class="mood-dot" data-zone="grey" title="灰色区">灰</span>
-          <span class="mood-dot" data-zone="blue" title="蓝色区">蓝</span>
-          <span class="mood-dot" data-zone="purple" title="紫色区">紫</span>
-          <span class="mood-dot" data-zone="brown" title="棕色区">棕</span>
-        </div>
       </div>
 
       <div id="chat-messages" class="chat-messages"></div>
@@ -54,9 +39,8 @@
     <div id="tab-diary" class="tab-content">
       <!-- 模式切换 -->
       <div class="diary-mode-tabs">
-        <button class="diary-mode-btn active" data-mode="guided">🧭 引导式觉察</button>
-        <button class="diary-mode-btn" data-mode="free">✏️ 自由书写</button>
-        <button class="diary-mode-btn" data-mode="my">📔 我的日记</button>
+        <button class="diary-mode-btn active" data-mode="guided">🧭 觉察日记</button>
+        <button class="diary-mode-btn" data-mode="my">🎨 情绪日记</button>
       </div>
 
       <!-- 引导式觉察 -->
@@ -95,28 +79,41 @@
             <button id="reset-guided-btn" class="btn-text">重新来过</button>
           </div>
         </div>
-      </div>
 
-      <!-- 自由书写 -->
-      <div id="free-diary" class="diary-mode-content">
-        <div class="diary-write">
-          <h3>写觉察日记</h3>
-          <input type="text" id="diary-title" placeholder="标题（可选，留空自动生成）">
-          <textarea id="diary-content" placeholder="今天发生了什么？你有什么情绪？试着描述一下..." rows="6"></textarea>
-          <div id="diary-loading" class="diary-loading" style="display: none;">小树正在读你的日记...</div>
-          <button id="save-diary-btn" class="btn-primary">保存并获取小树回应</button>
+        <!-- 觉察日记列表 -->
+        <div class="diary-toolbar">
+          <button id="export-guided-btn" class="btn-text">📤 导出觉察日记</button>
+          <span class="diary-count" id="guided-diary-count"></span>
         </div>
+        <div id="guided-diary-list" class="diary-list"></div>
       </div>
 
-      <!-- 我的日记 -->
+      <!-- 情绪日记 -->
       <div id="my-diary" class="diary-mode-content">
         <div class="my-diary-card">
-          <h3>📔 我的日记</h3>
-          <p class="my-diary-hint">睡前或固定时间，花 5 分钟记录今天的情绪。</p>
+          <h3>🎨 情绪日记</h3>
+          <p class="my-diary-hint">一次冥想式的情绪 check-in，每天 3-5 分钟。</p>
 
+          <!-- Step 1: 落地 -->
           <div class="my-diary-section">
-            <label class="my-diary-label">🎨 情绪颜色扫描</label>
-            <div class="my-diary-subtitle">你现在大概落在哪个颜色区？</div>
+            <div class="meditation-step">
+              <span class="step-number">1</span>
+              <span class="step-name">落地</span>
+            </div>
+            <p class="step-guide">做三次呼吸，告诉自己：「我现在在这里。」</p>
+            <div class="my-diary-input-row">
+              <label>身体哪个部位最有感觉？</label>
+              <input type="text" id="my-body" placeholder="例如：胸口发紧、肩膀沉重、胃部不适">
+            </div>
+          </div>
+
+          <!-- Step 2: 情绪命名 -->
+          <div class="my-diary-section">
+            <div class="meditation-step">
+              <span class="step-number">2</span>
+              <span class="step-name">情绪命名</span>
+            </div>
+            <p class="step-guide">不解释，只命名。选一个颜色区，再选一个具体情绪词。</p>
             <div class="mood-wheel" id="my-diary-mood-wheel">
               <div class="mood-zone" data-zone="red">
                 <span class="zone-dot" style="background:#e74c3c;"></span>
@@ -148,41 +145,53 @@
               </div>
             </div>
             <div class="emotion-tags" id="my-diary-emotion-tags"></div>
+            <div class="my-diary-input-row" style="margin-top:12px;">
+              <input type="text" id="my-emotion" placeholder="或手动输入今天的情绪">
+            </div>
           </div>
 
+          <!-- Step 3: 需求倾听 -->
           <div class="my-diary-section">
-            <label class="my-diary-label">📝 三行情绪容器</label>
-            <div class="my-diary-input-row">
-              <label>今天最强烈的情绪：</label>
-              <input type="text" id="my-emotion" placeholder="例如：焦虑、烦躁、感动">
+            <div class="meditation-step">
+              <span class="step-number">3</span>
+              <span class="step-name">需求倾听</span>
             </div>
+            <p class="step-guide">这个情绪想告诉你什么？它背后需要什么？</p>
             <div class="my-diary-input-row">
-              <label>它可能指向的需求：</label>
-              <input type="text" id="my-need" placeholder="例如：确定感、被理解、休息">
-            </div>
-            <div class="my-diary-input-row">
-              <label>我做的一件小事：</label>
-              <input type="text" id="my-action" placeholder="例如：深呼吸三次、写下清单">
+              <input type="text" id="my-need" placeholder="例如：被理解、确定感、允许自己休息">
             </div>
           </div>
 
-          <button id="save-my-diary-btn" class="btn-primary">保存日记</button>
+          <!-- Step 4: 小行动/安放 -->
+          <div class="my-diary-section">
+            <div class="meditation-step">
+              <span class="step-number">4</span>
+              <span class="step-name">小行动 / 安放</span>
+            </div>
+            <p class="step-guide">一件今天可以做的小事，或只是「允许它在这里」。</p>
+            <div class="my-diary-input-row">
+              <input type="text" id="my-action" placeholder="例如：喝杯水、早点睡、允许自己不发消息">
+            </div>
+          </div>
+
+          <button id="save-my-diary-btn" class="btn-primary">保存情绪日记</button>
         </div>
 
         <!-- 放松流程 -->
         <div id="relax-section" class="relax-section" style="display:none;">
-          <div class="relax-success">✅ 日记已保存</div>
+          <div class="relax-success">✅ 情绪日记已保存</div>
           <button id="start-relax-btn" class="btn-relax">🌙 开始放松</button>
-          <p class="relax-hint">点击后将进行 6 秒镇定，随后播放小树催眠音频。</p>
+          <p class="relax-hint">点击后将进行 10 秒镇定，随后播放小树催眠音频。</p>
         </div>
+
+        <!-- 情绪日记列表 -->
+        <div class="diary-toolbar">
+          <button id="export-mood-btn" class="btn-text">📤 导出情绪日记</button>
+          <span class="diary-count" id="mood-diary-count"></span>
+        </div>
+        <div id="mood-diary-list" class="diary-list"></div>
       </div>
 
-      <!-- 导出 + 日记列表 -->
-      <div class="diary-toolbar">
-        <button id="export-all-btn" class="btn-text">📤 导出全部</button>
-        <span class="diary-count" id="diary-count"></span>
-      </div>
-      <div id="diary-list" class="diary-list"></div>
     </div>
 
     <!-- 识人页 -->
@@ -297,17 +306,17 @@
     <!-- Toast -->
     <div id="toast" class="toast"></div>
 
-    <!-- 放松流程浮层：6 秒镇定 + 催眠音频 -->
+    <!-- 放松流程浮层：10 秒镇定 + 催眠音频 -->
     <div id="relax-overlay" class="relax-overlay" style="display:none;">
       <div class="relax-content">
         <button id="relax-close" class="relax-close">×</button>
 
-        <!-- 6 秒镇定 -->
+        <!-- 10 秒镇定 -->
         <div id="calm-section" class="calm-section">
-          <div class="calm-title">6 秒镇定</div>
+          <div class="calm-title">10 秒镇定</div>
           <div class="calm-circle">
             <div class="calm-progress" id="calm-progress"></div>
-            <div class="calm-text" id="calm-text">6</div>
+            <div class="calm-text" id="calm-text">10</div>
           </div>
           <div class="calm-step" id="calm-step">注意你身体的哪个部位能感受到这种情绪</div>
         </div>
@@ -336,9 +345,9 @@
     </div>
   </div>
 
-  <script src="config.js?v=9"></script>
-  <script src="xiaoshu-prompt.js?v=9"></script>
-  <script src="app.js?v=13"></script>
+  <script src="config.js?v=10"></script>
+  <script src="xiaoshu-prompt.js?v=10"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
 
