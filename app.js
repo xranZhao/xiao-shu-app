@@ -29,6 +29,13 @@ const App = {
 
   // 情绪日记当前选中颜色区
   myDiaryZone: null,
+  // 情绪日记分步状态
+  moodStep: {
+    current: 1,
+    total: 4,
+    landingTimer: null,
+    landingSeconds: 20,
+  },
 
   init() {
     this.loadData();
@@ -614,14 +621,25 @@ ${historySummary}
 
   // ========== 情绪日记 ==========
   openMyDiaryWithZone(zone) {
-    // 切换到日记 Tab 和我的日记模式
+    // 切换到日记 Tab 和情绪日记模式
     this.switchTab("diary");
     document.querySelectorAll(".diary-mode-btn").forEach(b => b.classList.remove("active"));
     const myBtn = document.querySelector('.diary-mode-btn[data-mode="my"]');
     if (myBtn) myBtn.classList.add("active");
     document.querySelectorAll(".diary-mode-content").forEach(c => c.classList.remove("active"));
     document.getElementById("my-diary").classList.add("active");
+    this.resetMoodStep();
     this.selectMyDiaryZone(zone);
+  },
+
+  resetMoodStep() {
+    this.moodStep.current = 1;
+    if (this.moodStep.landingTimer) {
+      clearInterval(this.moodStep.landingTimer);
+      this.moodStep.landingTimer = null;
+    }
+    this.moodStep.landingSeconds = 20;
+    this.renderMoodStep();
   },
 
   selectMyDiaryZone(zone) {
@@ -641,6 +659,96 @@ ${historySummary}
     }
     const emotions = this.emotionZones[zone]?.emotions || [];
     container.innerHTML = emotions.map(e => `<span class="emotion-tag">${e}</span>`).join("");
+  },
+
+  renderMoodStep() {
+    const badge = document.getElementById("mood-step-badge");
+    const nameEl = document.getElementById("mood-step-name");
+    const steps = ["落地", "情绪命名", "安放今天的日子", "感受体验"];
+    const stepNames = ["落地", "情绪命名", "安放今天的日子", "感受体验"];
+    if (badge) badge.textContent = `第 ${this.moodStep.current} / ${this.moodStep.total} 步`;
+    if (nameEl) nameEl.textContent = stepNames[this.moodStep.current - 1] || "";
+
+    document.querySelectorAll("#my-diary .mood-step").forEach(el => {
+      el.classList.toggle("active", parseInt(el.dataset.step) === this.moodStep.current);
+    });
+
+    const prevBtn = document.getElementById("mood-prev-btn");
+    const nextBtn = document.getElementById("mood-next-btn");
+    if (prevBtn) prevBtn.style.visibility = this.moodStep.current === 1 ? "hidden" : "visible";
+    if (nextBtn) {
+      nextBtn.textContent = this.moodStep.current === this.moodStep.total ? "保存情绪日记" : "下一步 →";
+      nextBtn.disabled = false;
+    }
+
+    if (this.moodStep.current === 1) {
+      this.startLandingTimer();
+    } else {
+      this.stopLandingTimer();
+    }
+  },
+
+  startLandingTimer() {
+    if (this.moodStep.landingTimer) return;
+    const total = 20;
+    let seconds = total;
+    const progressEl = document.getElementById("landing-progress");
+    const textEl = document.getElementById("landing-text");
+    const hintEl = document.getElementById("landing-hint");
+    const nextBtn = document.getElementById("mood-next-btn");
+
+    if (progressEl) progressEl.style.width = "0%";
+    if (textEl) textEl.textContent = seconds;
+    if (hintEl) hintEl.textContent = "吸气 4 秒，呼气 6 秒，慢慢来";
+    if (nextBtn) nextBtn.disabled = true;
+
+    this.moodStep.landingTimer = setInterval(() => {
+      seconds--;
+      if (textEl) textEl.textContent = seconds;
+      if (progressEl) progressEl.style.width = `${((total - seconds) / total) * 100}%`;
+      if (hintEl) {
+        if (seconds <= 15) hintEl.textContent = "感受身体与椅子/床的接触";
+        if (seconds <= 10) hintEl.textContent = "让肩膀松一点，再松一点";
+        if (seconds <= 5) hintEl.textContent = "准备好后，进入下一步";
+      }
+      if (seconds <= 0) {
+        this.stopLandingTimer();
+        if (nextBtn) nextBtn.disabled = false;
+      }
+    }, 1000);
+  },
+
+  stopLandingTimer() {
+    if (this.moodStep.landingTimer) {
+      clearInterval(this.moodStep.landingTimer);
+      this.moodStep.landingTimer = null;
+    }
+  },
+
+  skipLandingTimer() {
+    this.stopLandingTimer();
+    const progressEl = document.getElementById("landing-progress");
+    const textEl = document.getElementById("landing-text");
+    const nextBtn = document.getElementById("mood-next-btn");
+    if (progressEl) progressEl.style.width = "100%";
+    if (textEl) textEl.textContent = "0";
+    if (nextBtn) nextBtn.disabled = false;
+  },
+
+  nextMoodStep() {
+    if (this.moodStep.current < this.moodStep.total) {
+      this.moodStep.current++;
+      this.renderMoodStep();
+    } else {
+      this.saveMyDiary();
+    }
+  },
+
+  prevMoodStep() {
+    if (this.moodStep.current > 1) {
+      this.moodStep.current--;
+      this.renderMoodStep();
+    }
   },
 
   saveMyDiary() {
@@ -682,18 +790,19 @@ ${historySummary}
     this.moodDiaries.unshift(diary);
     this.saveData();
 
-    // 清空输入
+    // 清空输入并回到第一步
     if (bodyInput) bodyInput.value = "";
     emotionInput.value = "";
     needInput.value = "";
     actionInput.value = "";
     this.selectMyDiaryZone(null);
-
-    // 显示放松入口
-    document.getElementById("relax-section").style.display = "block";
+    this.resetMoodStep();
 
     this.renderMoodDiaries();
-    this.showToast("情绪日记已保存 🌙");
+    this.showToast("情绪日记已保存，进入冥想催眠 🌙");
+
+    // 直接进入冥想催眠：10 秒镇定 + 自动播放催眠音频
+    this.startRelaxFlow();
   },
 
   // ========== 放松流程：10 秒镇定 + 催眠音频 ==========
@@ -1075,16 +1184,52 @@ ${content}`;
     this.people.forEach(p => {
       const card = document.createElement("div");
       card.className = "person-card";
+      const title = this.getPersonTitle(p);
       card.innerHTML = `
-        <div class="person-card-header">
-          <span class="person-card-name">${this.escapeHtml(p.name)}</span>
-          <span class="person-card-relation">${this.escapeHtml(p.relation)}</span>
+        <div class="person-card-main">
+          <div class="person-card-header">
+            <span class="person-card-name">${this.escapeHtml(p.name)}</span>
+            <span class="person-card-relation">${this.escapeHtml(p.relation)}</span>
+          </div>
+          ${title ? `<div class="person-card-title">${this.escapeHtml(title)}</div>` : ""}
+          <div class="person-card-meta">观察到 ${p.observations.length} 次 · ${new Date(p.createdAt).toLocaleDateString("zh-CN")}</div>
         </div>
-        <div class="person-card-meta">观察到 ${p.observations.length} 次 · ${new Date(p.createdAt).toLocaleDateString("zh-CN")}</div>
+        <button class="person-card-delete" data-pid="${p.id}" title="删除角色">×</button>
       `;
-      card.addEventListener("click", () => this.openPerson(p.id));
+      card.querySelector(".person-card-main").addEventListener("click", () => this.openPerson(p.id));
+      card.querySelector(".person-card-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.deletePerson(parseInt(e.currentTarget.dataset.pid));
+      });
       list.appendChild(card);
     });
+  },
+
+  deletePerson(id) {
+    const p = this.people.find(pp => pp.id === id);
+    if (!p) return;
+    if (!confirm(`确定删除角色「${p.name}」及其所有观察记录和分析吗？`)) return;
+    this.people = this.people.filter(pp => pp.id !== id);
+    this.saveData();
+    if (this.currentPersonId === id) this.closePerson();
+    this.renderPeopleList();
+    this.showToast("角色已删除");
+  },
+
+  getPersonTitle(p) {
+    if (p.title) return p.title;
+    return this.generatePersonTitleLocal(p);
+  },
+
+  generatePersonTitleLocal(p) {
+    // 本地规则标题，类似觉察日记：日期-关键词-关系
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const latest = p.observations[p.observations.length - 1];
+    if (latest) {
+      const snippet = latest.content.replace(/[\s，。！？、；：""''（）]/g, "").slice(0, 6);
+      return `${date}-${snippet || "观察"}-${p.relation}`;
+    }
+    return `${date}-${p.name}-${p.relation}`;
   },
 
   showPersonForm() {
@@ -1168,9 +1313,11 @@ ${content}`;
     if (!p) return;
 
     // 角色信息
+    const title = this.getPersonTitle(p);
     document.getElementById("person-info-card").innerHTML = `
       <div class="person-info-name">${this.escapeHtml(p.name)}</div>
       <div class="person-info-relation">${this.escapeHtml(p.relation)} · ${new Date(p.createdAt).toLocaleDateString("zh-CN")}</div>
+      ${title ? `<div class="person-info-title">${this.escapeHtml(title)}</div>` : ""}
       ${p.impression ? `<div class="person-info-meta" style="font-size:13px;color:var(--text-light);margin-top:6px;">${this.escapeHtml(p.impression)}</div>` : ""}
       <div class="person-info-ct-hint">
         💡 识人的目的不是评判对方，而是理解「为什么我和他在一起会有这种感觉」。<br><br>
@@ -1199,7 +1346,7 @@ ${content}`;
       document.getElementById("person-analysis-card").style.display = "";
       const last = p.analyses[p.analyses.length - 1];
       document.getElementById("analysis-body").innerHTML = this.markdownToHtml(last.content);
-      document.getElementById("analysis-honesty").innerHTML = `<strong>⚠️ 诚实边界</strong><br>${this.HONESTY_BOUNDARY}`;
+      document.getElementById("analysis-honesty").innerHTML = `<div class="honesty-title">⚠️ 诚实边界</div>` + this.HONESTY_BOUNDARY.map(item => `<p class="honesty-item">• ${this.escapeHtml(item)}</p>`).join("");
       document.getElementById("analysis-date").textContent = "分析时间：" + new Date(last.createdAt).toLocaleString("zh-CN");
     } else {
       document.getElementById("person-analysis-card").style.display = "none";
@@ -1219,6 +1366,8 @@ ${content}`;
     [...p.observations].reverse().forEach(o => {
       const div = document.createElement("div");
       div.className = "obs-item";
+      const isLong = o.content.length > 40;
+      const preview = this.escapeHtml(o.content.slice(0, 40));
       div.innerHTML = `
         <div class="obs-item-header">
           <span class="obs-item-type">${o.type === "言" ? "💬" : o.type === "行" ? "🏃" : "🧠"} ${o.type}</span>
@@ -1227,9 +1376,30 @@ ${content}`;
             <button class="obs-item-delete" data-oid="${o.id}">删除</button>
           </div>
         </div>
-        <div class="obs-item-content">${this.escapeHtml(o.content)}</div>
+        <div class="obs-item-content collapsed" data-full="${this.escapeHtml(o.content)}">
+          <span class="obs-preview">${preview}${isLong ? "…" : ""}</span>
+          ${isLong ? `<button class="obs-expand-btn">展开</button>` : ""}
+        </div>
       `;
       list.appendChild(div);
+    });
+
+    // 展开/收起
+    list.querySelectorAll(".obs-expand-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const contentEl = e.currentTarget.closest(".obs-item-content");
+        const isCollapsed = contentEl.classList.contains("collapsed");
+        if (isCollapsed) {
+          contentEl.innerHTML = `<span class="obs-full">${contentEl.dataset.full}</span><button class="obs-expand-btn">收起</button>`;
+          contentEl.classList.remove("collapsed");
+          contentEl.classList.add("expanded");
+        } else {
+          contentEl.classList.remove("expanded");
+          contentEl.classList.add("collapsed");
+          this.renderObsList();
+        }
+      });
     });
 
     // 删除事件
@@ -1245,13 +1415,15 @@ ${content}`;
     });
   },
 
-  HONESTY_BOUNDARY: `• 这些分析基于你提供的二手信息（你的视角），不是第一手观察，存在严重偏差。
-• 分析依赖的只是你记录的语言和行为片段，无法还原完整的语境和对方的内心体验。
-• 我能看到的只是「你这侧的客体关系配对」——看到的不是真实的他，是你眼中的他。
-• 以下结论仅为推测，不能被当作对方的事实。
-• 不要用这些分析去给对方贴标签；不要用这些分析去质问对方、「诊断」对方、或证明自己是对的。
-• 精神分析不是你攻击别人的武器。
-• 如果你用这些去说服对方"你不是回避型吗"——我会生气。`,
+  HONESTY_BOUNDARY: [
+    "这些分析基于你提供的二手信息（你的视角），不是第一手观察，存在严重偏差。",
+    "分析依赖的只是你记录的语言和行为片段，无法还原完整的语境和对方的内心体验。",
+    "我能看到的只是「你这侧的客体关系配对」——看到的不是真实的他，是你眼中的他。",
+    "以下结论仅为推测，不能被当作对方的事实。",
+    "不要用这些分析去给对方贴标签；不要用这些分析去质问对方、「诊断」对方、或证明自己是对的。",
+    "精神分析不是你攻击别人的武器。",
+    "如果你用这些去说服对方\"你不是回避型吗\"——我会生气。",
+  ],
 
   async analyzePerson() {
     const p = this.getCurrentPerson();
@@ -1303,7 +1475,19 @@ ${obsText}${ctInfo}
 4. 关注反移情：用户记录这些时，可能在被唤起什么样的感受？
 5. 指出人格发展水平（一元/二元/三元）的线索（如有）
 6. 如果与上述7种男性类型有相似之处，温和地点一下
-7. 控制 400-600 字`;
+7. 控制 400-600 字
+
+最后，请用一句话为这个对象生成一个 8-15 字的标题（不要带引号），单独成行，格式：TITLE: 你的标题`;
+
+    const parseAnalysisResponse = (text) => {
+      const match = text.match(/TITLE:\s*(.+?)(?:\n|$)/);
+      if (match) {
+        const title = match[1].trim();
+        const content = text.replace(match[0], "").trim();
+        return { title, content };
+      }
+      return { title: "", content: text.trim() };
+    };
 
     try {
       const response = await fetch(CONFIG.BASE_URL, {
@@ -1324,8 +1508,10 @@ ${obsText}${ctInfo}
       });
       if (!response.ok) { const err = await response.text(); throw new Error(`API 错误: ${err}`); }
       const data = await response.json();
-      const content = data.choices[0].message.content;
+      const raw = data.choices[0].message.content;
+      const { title, content } = parseAnalysisResponse(raw);
 
+      if (title) p.title = title;
       p.analyses.push({ id: Date.now(), content, createdAt: Date.now() });
       this.saveData();
       this.renderPersonDetail();
@@ -1408,6 +1594,7 @@ ${obsText}${ctInfo}
           this.renderDiaries();
         } else if (mode === "my") {
           document.getElementById("my-diary").classList.add("active");
+          this.resetMoodStep();
           this.renderMoodDiaries();
         }
       });
@@ -1437,11 +1624,14 @@ ${obsText}${ctInfo}
     if (exportMoodBtn) exportMoodBtn.addEventListener("click", () => this.exportAllMoodDiaries());
 
     // ===== 情绪日记事件 =====
-    const saveMyDiaryBtn = document.getElementById("save-my-diary-btn");
-    if (saveMyDiaryBtn) saveMyDiaryBtn.addEventListener("click", () => this.saveMyDiary());
+    const moodPrevBtn = document.getElementById("mood-prev-btn");
+    if (moodPrevBtn) moodPrevBtn.addEventListener("click", () => this.prevMoodStep());
 
-    const startRelaxBtn = document.getElementById("start-relax-btn");
-    if (startRelaxBtn) startRelaxBtn.addEventListener("click", () => this.startRelaxFlow());
+    const moodNextBtn = document.getElementById("mood-next-btn");
+    if (moodNextBtn) moodNextBtn.addEventListener("click", () => this.nextMoodStep());
+
+    const landingSkipBtn = document.getElementById("landing-skip-btn");
+    if (landingSkipBtn) landingSkipBtn.addEventListener("click", () => this.skipLandingTimer());
 
     const audioPlayPause = document.getElementById("audio-play-pause");
     if (audioPlayPause) audioPlayPause.addEventListener("click", () => this.toggleHypnosisAudio());
@@ -1494,6 +1684,10 @@ ${obsText}${ctInfo}
         content,
         createdAt: Date.now(),
       });
+      // 若还没有标题，用最新记录本地生成一个
+      if (!p.title) {
+        p.title = this.generatePersonTitleLocal(p);
+      }
       this.saveData();
       input.value = "";
       this.renderPersonDetail();
@@ -1562,7 +1756,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=9").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=10").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
