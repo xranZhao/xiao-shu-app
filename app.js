@@ -1,10 +1,11 @@
-﻿// 小树觉察室 - 主逻辑
+// 小树觉察室 - 主逻辑
 
 const App = {
   currentMode: "normal",
   currentChat: [],
   diaries: [],        // 觉察日记
   moodDiaries: [],    // 情绪日记
+  freeDiaries: [],    // 自由书写
   activeTab: "chat",
   // 引导式觉察状态
   guided: {
@@ -43,9 +44,11 @@ const App = {
     this.renderChat();
     this.renderDiaries();
     this.renderMoodDiaries();
+    this.renderFreeDiaries();
     this.renderSettings();
     this.setupEventListeners();
     this.setMode("xiaoshu");
+    this.checkWeeklyExportReminder();
 
     // 首次使用检查：如果没有 API Key，提示用户去设置
     if (!CONFIG.API_KEY) {
@@ -61,21 +64,32 @@ const App = {
       const chat = localStorage.getItem("xs_chat_history");
       const diaries = localStorage.getItem("xs_diaries");
       const moodDiaries = localStorage.getItem("xs_mood_diaries");
+      const freeDiaries = localStorage.getItem("xs_free_diaries");
       const mode = localStorage.getItem("xs_mode");
       const people = localStorage.getItem("xs_people");
       if (chat) this.currentChat = JSON.parse(chat);
       if (diaries) this.diaries = JSON.parse(diaries);
       if (moodDiaries) this.moodDiaries = JSON.parse(moodDiaries);
+      if (freeDiaries) this.freeDiaries = JSON.parse(freeDiaries);
       if (mode) this.currentMode = mode;
       if (people) this.people = JSON.parse(people);
 
       // 迁移：旧版本中 source 为 "my" 的情绪日记在 xs_diaries 里，迁移到 xs_mood_diaries
-      const migrated = this.diaries.filter(d => d.source === "my");
-      if (migrated.length > 0) {
-        this.moodDiaries = [...migrated, ...this.moodDiaries];
+      const migratedMy = this.diaries.filter(d => d.source === "my");
+      if (migratedMy.length > 0) {
+        this.moodDiaries = [...migratedMy, ...this.moodDiaries];
         this.diaries = this.diaries.filter(d => d.source !== "my");
         this.saveData();
-        console.log(`已迁移 ${migrated.length} 条情绪日记到新存储`);
+        console.log(`已迁移 ${migratedMy.length} 条情绪日记到新存储`);
+      }
+
+      // 迁移：旧版本（V2）中 source 为 "free" 的自由书写在 xs_diaries 里，迁移到 xs_free_diaries
+      const migratedFree = this.diaries.filter(d => d.source === "free");
+      if (migratedFree.length > 0) {
+        this.freeDiaries = [...migratedFree, ...this.freeDiaries];
+        this.diaries = this.diaries.filter(d => d.source !== "free");
+        this.saveData();
+        console.log(`已迁移 ${migratedFree.length} 条自由书写到新存储`);
       }
     } catch (e) {
       console.error("加载数据失败", e);
@@ -87,6 +101,7 @@ const App = {
       localStorage.setItem("xs_chat_history", JSON.stringify(this.currentChat.slice(-CONFIG.MAX_HISTORY)));
       localStorage.setItem("xs_diaries", JSON.stringify(this.diaries));
       localStorage.setItem("xs_mood_diaries", JSON.stringify(this.moodDiaries));
+      localStorage.setItem("xs_free_diaries", JSON.stringify(this.freeDiaries));
       localStorage.setItem("xs_mode", this.currentMode);
       localStorage.setItem("xs_people", JSON.stringify(this.people));
     } catch (e) {
@@ -593,6 +608,104 @@ ${historySummary}
     this.showToast("觉察日记已保存 🌱");
   },
 
+  // ========== 自由书写 ==========
+  async saveFreeDiary() {
+    const titleInput = document.getElementById("free-diary-title");
+    const contentInput = document.getElementById("free-diary-content");
+    const title = titleInput.value.trim();
+    const content = contentInput.value.trim();
+    if (!content) { this.showToast("请先写下今天的觉察"); return; }
+
+    this.showFreeDiaryLoading(true);
+    let feedback = "";
+    try {
+      feedback = await this.callAIFeedback(content);
+    } catch (err) {
+      console.error(err);
+      feedback = "（小树反馈获取失败，你可以稍后再试）";
+    }
+
+    const diary = {
+      id: Date.now(),
+      title: title || new Date().toLocaleDateString("zh-CN"),
+      date: new Date().toISOString().slice(0, 10),
+      source: "free",
+      content,
+      feedback,
+      createdAt: Date.now(),
+    };
+
+    this.freeDiaries.unshift(diary);
+    this.saveData();
+    titleInput.value = "";
+    contentInput.value = "";
+    this.renderFreeDiaries();
+    this.showFreeDiaryLoading(false);
+    this.showToast("自由书写已保存 🌱");
+  },
+
+  showFreeDiaryLoading(show) {
+    const btn = document.getElementById("save-free-diary-btn");
+    const loading = document.getElementById("free-diary-loading");
+    if (btn) btn.disabled = show;
+    if (loading) loading.style.display = show ? "block" : "none";
+  },
+
+  renderFreeDiaries() {
+    const list = document.getElementById("free-diary-list");
+    const countEl = document.getElementById("free-diary-count");
+    if (!list) return;
+    if (countEl) countEl.textContent = `共 ${this.freeDiaries.length} 篇`;
+
+    if (this.freeDiaries.length === 0) {
+      list.innerHTML = '<div class="empty">还没有自由书写，开始你的第一篇吧 ✍️</div>';
+      return;
+    }
+
+    list.innerHTML = "";
+    this.freeDiaries.forEach((d) => {
+      const card = document.createElement("div");
+      card.className = "diary-card";
+      card.dataset.id = String(d.id);
+
+      card.innerHTML = `
+        <div class="diary-header">
+          <div class="diary-header-main">
+            <h4>${this.escapeHtml(d.title)}</h4>
+            <span class="diary-date">${new Date(d.createdAt).toLocaleString("zh-CN")}</span>
+          </div>
+          <span class="expand-icon">▶</span>
+        </div>
+        <div class="diary-body">
+          <div class="diary-content">${this.markdownToHtml(d.content)}</div>
+          <div class="diary-feedback">
+            <div class="feedback-label">🌱 小树回应</div>
+            <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
+          </div>
+          <div class="diary-card-actions">
+            <button class="btn-text" onclick="App.exportFreeDiary(${d.id})">📤 导出</button>
+            <button class="btn-text danger" onclick="App.deleteFreeDiary(${d.id})">删除</button>
+          </div>
+        </div>
+      `;
+
+      const header = card.querySelector(".diary-header");
+      header.addEventListener("click", () => {
+        card.classList.toggle("expanded");
+      });
+
+      list.appendChild(card);
+    });
+  },
+
+  deleteFreeDiary(id) {
+    if (!confirm("确定删除这条自由书写吗？")) return;
+    this.freeDiaries = this.freeDiaries.filter((d) => d.id !== id);
+    this.saveData();
+    this.renderFreeDiaries();
+    this.showToast("自由书写已删除");
+  },
+
   extractPrimaryEmotion(feelingText) {
     const emotions = ["愤怒", "委屈", "难过", "无力", "焦虑", "恐惧", "羞耻", "内疚", "孤独",
       "失望", "烦躁", "崩溃", "压抑", "悲伤", "痛苦", "自责", "自卑"];
@@ -1090,6 +1203,177 @@ ${content}`;
     this.showToast(`已导出 ${this.moodDiaries.length} 篇情绪日记`);
   },
 
+  exportFreeDiary(id) {
+    const d = this.freeDiaries.find(dd => dd.id === id);
+    if (!d) return;
+    const filename = (d.title || "自由书写").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
+    let text = `标题：${d.title}\n日期：${d.date}\n类型：自由书写\n\n`;
+    text += `${d.content}\n\n`;
+    text += `【🌱 小树回应】\n${d.feedback}\n`;
+    this.downloadFile(filename, text);
+  },
+
+  exportAllFreeDiaries() {
+    if (this.freeDiaries.length === 0) { this.showToast("没有自由书写可导出"); return; }
+    for (const d of this.freeDiaries) {
+      this.exportFreeDiary(d.id);
+    }
+    this.showToast(`已导出 ${this.freeDiaries.length} 篇自由书写`);
+  },
+
+  // ========== 一键周报导出 ==========
+  getFridayStart(timestamp) {
+    const date = new Date(timestamp);
+    const day = date.getDay(); // 0=周日, 1=周一, ..., 5=周五, 6=周六
+    const diff = (day + 2) % 7; // 到本周五的天数差（周五为基准）
+    const friday = new Date(date);
+    friday.setDate(date.getDate() - diff);
+    friday.setHours(0, 0, 0, 0);
+    return friday.getTime();
+  },
+
+  checkWeeklyExportReminder() {
+    const banner = document.getElementById("weekly-export-banner");
+    if (!banner) return;
+    const now = new Date();
+    if (now.getDay() !== 5) { banner.style.display = "none"; return; }
+
+    let lastExportedAt = 0;
+    try {
+      const saved = localStorage.getItem("xs_weekly_export");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        lastExportedAt = parsed.lastExportedAt || 0;
+      }
+    } catch (e) { console.error("读取周报导出记录失败", e); }
+
+    const fridayStart = this.getFridayStart(Date.now());
+    if (lastExportedAt >= fridayStart) {
+      banner.style.display = "none";
+    } else {
+      banner.style.display = "block";
+    }
+  },
+
+  dismissWeeklyReminder() {
+    const now = Date.now();
+    try {
+      localStorage.setItem("xs_weekly_export", JSON.stringify({ lastExportedAt: now }));
+    } catch (e) { console.error("保存周报导出记录失败", e); }
+    const banner = document.getElementById("weekly-export-banner");
+    if (banner) banner.style.display = "none";
+  },
+
+  formatWeeklyReport() {
+    const lines = [];
+    const now = new Date().toLocaleString("zh-CN");
+    lines.push(`# 小树觉察室周报`);
+    lines.push(`生成时间：${now}`);
+    lines.push(`---`);
+    lines.push("");
+
+    // 一、对话记录
+    lines.push("## 一、对话记录");
+    const userMessages = this.currentChat.filter(m => m.role === "user");
+    if (userMessages.length === 0) {
+      lines.push("（本周暂无对话记录）");
+    } else {
+      userMessages.forEach((m, i) => {
+        const t = new Date(m.time).toLocaleString("zh-CN");
+        lines.push(`${i + 1}. ${t}`);
+        lines.push(`   ${m.content}`);
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 二、引导式觉察
+    lines.push("## 二、引导式觉察");
+    const guided = this.diaries.filter(d => d.source === "guided");
+    if (guided.length === 0) {
+      lines.push("（本周暂无引导式觉察）");
+    } else {
+      guided.forEach((d) => {
+        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        if (d.steps) {
+          lines.push(`情绪事件：${d.steps.event || "未记录"}`);
+          lines.push(`身心感受：${d.steps.feeling || "未记录"}`);
+          lines.push(`防御方式：${d.steps.defense || "未记录"}`);
+          lines.push(`延展模型：${d.steps.extend || "未记录"}`);
+        } else {
+          lines.push(d.content || "");
+        }
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 三、自由书写
+    lines.push("## 三、自由书写");
+    const free = this.freeDiaries.filter(d => d.source === "free");
+    if (free.length === 0) {
+      lines.push("（本周暂无自由书写）");
+    } else {
+      free.forEach((d) => {
+        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        lines.push(d.content || "");
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 四、情绪日记
+    lines.push("## 四、情绪日记");
+    const moods = this.moodDiaries.filter(d => d.source === "my");
+    if (moods.length === 0) {
+      lines.push("（本周暂无情绪日记）");
+    } else {
+      moods.forEach((d) => {
+        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        lines.push(`身体感受：${d.body || "未记录"}`);
+        lines.push(`颜色区：${d.colorZoneName || "未选择"}`);
+        lines.push(`情绪：${d.emotion || "未记录"}`);
+        lines.push(`需求：${d.need || "未记录"}`);
+        lines.push(`行动：${d.action || "未记录"}`);
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 五、识人观察
+    lines.push("## 五、识人观察");
+    const peopleWithObs = this.people.filter(p => p.observations && p.observations.length > 0);
+    if (peopleWithObs.length === 0) {
+      lines.push("（本周暂无识人观察）");
+    } else {
+      peopleWithObs.forEach((p) => {
+        lines.push(`角色：${p.name}（${p.relation}）`);
+        [...p.observations].sort((a, b) => a.createdAt - b.createdAt).forEach((o) => {
+          const t = new Date(o.createdAt).toLocaleString("zh-CN");
+          lines.push(`[${o.type}] ${t}`);
+          lines.push(o.content || "");
+          lines.push("");
+        });
+      });
+    }
+    lines.push("");
+    lines.push("---");
+    lines.push("周报结束");
+
+    return lines.join("\n");
+  },
+
+  exportWeeklyReport() {
+    const text = this.formatWeeklyReport();
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `小树觉察室周报_${date}.txt`;
+    this.downloadFile(filename, text);
+
+    // 记录导出时间，隐藏提醒
+    this.dismissWeeklyReminder();
+    this.showToast("周报已导出 🌱");
+  },
+
   downloadFile(filename, text) {
     // 使用 UTF-8 BOM 确保 Windows/手机打开不乱码
     const blob = new Blob(["﻿" + text], { type: "text/plain;charset=utf-8" });
@@ -1160,12 +1444,15 @@ ${content}`;
     localStorage.removeItem("xs_chat_history");
     localStorage.removeItem("xs_diaries");
     localStorage.removeItem("xs_mood_diaries");
+    localStorage.removeItem("xs_free_diaries");
+    localStorage.removeItem("xs_weekly_export");
     localStorage.removeItem("xs_mode");
     localStorage.removeItem("xs_people");
     localStorage.removeItem("xs_user_config");
     this.currentChat = [];
     this.diaries = [];
     this.moodDiaries = [];
+    this.freeDiaries = [];
     this.people = [];
     this.currentMode = "xiaoshu";
     this.saveData();
@@ -1543,6 +1830,7 @@ ${obsText}${ctInfo}
       this.renderGuidedStep();
       this.renderDiaries();
       this.renderMoodDiaries();
+      this.renderFreeDiaries();
     }
     // 切换到识人页时渲染角色列表
     if (tab === "people") {
@@ -1580,7 +1868,7 @@ ${obsText}${ctInfo}
       if (btn) btn.addEventListener("click", () => this.switchTab(tab));
     });
 
-    // 日记模式切换（觉察日记 / 情绪日记）
+    // 日记模式切换（觉察日记 / 情绪日记 / 自由书写）
     document.querySelectorAll(".diary-mode-btn").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const mode = e.target.dataset.mode;
@@ -1596,6 +1884,9 @@ ${obsText}${ctInfo}
           document.getElementById("my-diary").classList.add("active");
           this.resetMoodStep();
           this.renderMoodDiaries();
+        } else if (mode === "free") {
+          document.getElementById("free-diary").classList.add("active");
+          this.renderFreeDiaries();
         }
       });
     });
@@ -1622,6 +1913,20 @@ ${obsText}${ctInfo}
 
     const exportMoodBtn = document.getElementById("export-mood-btn");
     if (exportMoodBtn) exportMoodBtn.addEventListener("click", () => this.exportAllMoodDiaries());
+
+    // 自由书写事件
+    const saveFreeDiaryBtn = document.getElementById("save-free-diary-btn");
+    if (saveFreeDiaryBtn) saveFreeDiaryBtn.addEventListener("click", () => this.saveFreeDiary());
+
+    const exportFreeBtn = document.getElementById("export-free-btn");
+    if (exportFreeBtn) exportFreeBtn.addEventListener("click", () => this.exportAllFreeDiaries());
+
+    // 周报导出提醒
+    const weeklyExportBtn = document.getElementById("weekly-export-btn");
+    if (weeklyExportBtn) weeklyExportBtn.addEventListener("click", () => this.exportWeeklyReport());
+
+    const weeklyExportDismiss = document.getElementById("weekly-export-dismiss");
+    if (weeklyExportDismiss) weeklyExportDismiss.addEventListener("click", () => this.dismissWeeklyReminder());
 
     // ===== 情绪日记事件 =====
     const moodPrevBtn = document.getElementById("mood-prev-btn");
@@ -1756,7 +2061,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=10").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=11").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {

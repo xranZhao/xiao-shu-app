@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -9,10 +9,21 @@
   <title>小树觉察室</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
   <div id="app">
+    <!-- 周五周报导出提醒 -->
+    <div id="weekly-export-banner" class="weekly-export-banner" style="display:none;">
+      <div class="weekly-export-inner">
+        <span class="weekly-export-text">📅 又到周五了，一键导出本周觉察周报吧</span>
+        <div class="weekly-export-actions">
+          <button id="weekly-export-btn" class="weekly-export-btn">📤 一键导出周报</button>
+          <button id="weekly-export-dismiss" class="weekly-export-dismiss">本周不再提醒</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 顶部栏 -->
     <header class="app-header">
       <div class="header-title">小树觉察室</div>
@@ -41,6 +52,7 @@
       <div class="diary-mode-tabs">
         <button class="diary-mode-btn active" data-mode="guided">🧭 觉察日记</button>
         <button class="diary-mode-btn" data-mode="my">🎨 情绪日记</button>
+        <button class="diary-mode-btn" data-mode="free">✏️ 自由书写</button>
       </div>
 
       <!-- 引导式觉察 -->
@@ -205,6 +217,24 @@
         <div id="mood-diary-list" class="diary-list"></div>
       </div>
 
+      <!-- 自由书写 -->
+      <div id="free-diary" class="diary-mode-content">
+        <div class="diary-write">
+          <h3>✏️ 自由书写</h3>
+          <input type="text" id="free-diary-title" placeholder="标题（可选，留空自动生成）">
+          <textarea id="free-diary-content" placeholder="今天发生了什么？你有什么情绪？试着描述一下..." rows="6"></textarea>
+          <div id="free-diary-loading" class="diary-loading" style="display:none;">小树正在读你的日记...</div>
+          <button id="save-free-diary-btn" class="btn-primary">保存并获取小树回应</button>
+        </div>
+
+        <!-- 自由书写列表 -->
+        <div class="diary-toolbar">
+          <button id="export-free-btn" class="btn-text">📤 导出自由书写</button>
+          <span class="diary-count" id="free-diary-count"></span>
+        </div>
+        <div id="free-diary-list" class="diary-list"></div>
+      </div>
+
     </div>
 
     <!-- 识人页 -->
@@ -359,9 +389,9 @@
     </div>
   </div>
 
-  <script src="config.js?v=11"></script>
-  <script src="xiaoshu-prompt.js?v=11"></script>
-  <script src="app.js?v=15"></script>
+  <script src="config.js?v=16"></script>
+  <script src="xiaoshu-prompt.js?v=16"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>
 
