@@ -1276,18 +1276,20 @@ ${content}`;
   },
 
   renderDiaries() {
+    // 只显示觉察日记（来源为 guided 且非 happy），不显示导入的快乐治愈小分队
+    const guidedDiaries = this.diaries.filter((d) => d.source === "guided" && (d.category || d.steps?.category) !== "happy");
     const list = document.getElementById("guided-diary-list");
     const countEl = document.getElementById("guided-diary-count");
     if (!list) return;
-    if (countEl) countEl.textContent = `共 ${this.diaries.length} 篇`;
+    if (countEl) countEl.textContent = `共 ${guidedDiaries.length} 篇`;
 
-    if (this.diaries.length === 0) {
+    if (guidedDiaries.length === 0) {
       list.innerHTML = '<div class="empty">还没有觉察日记，开始你的第一篇吧 ✍️</div>';
       return;
     }
 
     list.innerHTML = "";
-    this.diaries.forEach((d) => {
+    guidedDiaries.forEach((d) => {
       const card = document.createElement("div");
       card.className = "diary-card";
       card.dataset.id = String(d.id);
@@ -2142,8 +2144,8 @@ ${obsText}${ctInfo}
   },
 
   async ensureHappyDiaryMetadata(diary) {
-    // 已经同时有 aiSummary 和 people 就跳过
-    if (diary.aiSummary && diary.people && diary.people.length > 0) return diary;
+    // 已生成过（有标记位）就直接跳过，避免反复请求
+    if (diary._metaGenerated) return diary;
     diary.aiSummary = diary.aiSummary || "";
     diary.people = diary.people || [];
     if (!diary.aiSummary || diary.people.length === 0) {
@@ -2154,15 +2156,14 @@ ${obsText}${ctInfo}
         ]);
         diary.aiSummary = aiSummary;
         diary.people = people;
-        this.saveData();
       } catch (err) {
         console.error("补生成闪光元数据失败", err);
-        // 即使 AI 失败也设个 fallback 防止反复请求
         if (!diary.aiSummary) diary.aiSummary = diary.steps?.event?.slice(0, 60) || diary.title || "";
         if (diary.people.length === 0) diary.people = [];
-        this.saveData();
       }
     }
+    diary._metaGenerated = true;
+    this.saveData();
     return diary;
   },
 
@@ -2342,18 +2343,55 @@ ${obsText}${ctInfo}
     const filterEl = document.getElementById("sparkle-people-filter");
     const listEl = document.getElementById("sparkle-people-list");
     const happyDiaries = this.getHappyDiaries();
-    const people = [...new Set(happyDiaries.flatMap((d) => d.people || []))].filter(Boolean);
+
+    // 统计每个人物出现次数，过滤掉无意义标签
+    const skipWords = new Set(["我", "他", "她", "其他人", "朋友", "同事", "孩子", "男朋友", "女朋友", "老公", "老婆"]);
+    const countMap = {};
+    happyDiaries.forEach((d) => {
+      (d.people || []).forEach((p) => {
+        if (skipWords.has(p)) return;
+        countMap[p] = (countMap[p] || 0) + 1;
+      });
+    });
+
+    // 按出现次数降序排列
+    const people = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
 
     if (people.length === 0) {
       listEl.innerHTML = '<div class="sparkle-empty-hint">还没有人物标签</div>';
     } else {
       listEl.innerHTML = [
-        `<span class="people-chip active" data-person="__all__">全部</span>`,
-        ...people.map((p) => `<span class="people-chip" data-person="${this.escapeHtml(p)}">${this.escapeHtml(p)}</span>`),
+        `<span class="people-chip active" data-person="__all__">全部 (${happyDiaries.length})</span>`,
+        ...people.map(([name, count]) =>
+          `<span class="people-chip" data-person="${this.escapeHtml(name)}">${this.escapeHtml(name)} ${count}<button class="chip-delete" data-name="${this.escapeHtml(name)}" title="长按删除此标签">×</button></span>`
+        ),
       ].join("");
     }
 
     filterEl.style.display = "flex";
+
+    // 删除人物标签事件
+    listEl.querySelectorAll(".chip-delete").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const name = btn.dataset.name;
+        if (!name) return;
+        if (!confirm(`确定从所有日记中删除人物标签「${name}」吗？`)) return;
+        this.deleteSparklePerson(name);
+        this.renderSparklePeopleFilter();
+      });
+    });
+  },
+
+  deleteSparklePerson(name) {
+    const happyDiaries = this.getHappyDiaries();
+    for (const d of happyDiaries) {
+      if (d.people && d.people.includes(name)) {
+        d.people = d.people.filter((p) => p !== name);
+      }
+    }
+    this.saveData();
+    this.showToast(`已删除标签「${name}」`);
   },
 
   hideSparklePeopleFilter() {
@@ -2754,7 +2792,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=18").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=19").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {

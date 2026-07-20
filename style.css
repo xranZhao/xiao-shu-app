@@ -2038,6 +2038,7 @@ html, body {
 .people-chip {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 5px 12px;
   border-radius: 14px;
   background: var(--primary-soft);
@@ -2046,6 +2047,31 @@ html, body {
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid transparent;
+}
+
+.chip-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-light);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 1;
+  padding: 0;
+  margin-left: 2px;
+  opacity: 0.5;
+  transition: all 0.15s;
+}
+
+.chip-delete:hover {
+  opacity: 1;
+  background: #e8c5c5;
+  color: #b54545;
 }
 
 .people-chip.active {
