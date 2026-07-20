@@ -1222,6 +1222,15 @@ ${content}`;
   },
 
   // ========== 一键周报导出 ==========
+  getISOWeekNumber(date) {
+    // ISO 8601: 周一为一周开始，1月4日所在周为第1周
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    return String(weekNo).padStart(2, "0");
+  },
+
   getFridayStart(timestamp) {
     const date = new Date(timestamp);
     const day = date.getDay(); // 0=周日, 1=周一, ..., 5=周五, 6=周六
@@ -1267,6 +1276,9 @@ ${content}`;
   formatWeeklyReport() {
     const lines = [];
     const now = new Date().toLocaleString("zh-CN");
+    // 7天前的0:00作为统计起点
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const weekAgo = todayStart.getTime() - 7 * 24 * 60 * 60 * 1000;
     lines.push(`# 小树觉察室周报`);
     lines.push(`生成时间：${now}`);
     lines.push(`---`);
@@ -1274,7 +1286,7 @@ ${content}`;
 
     // 一、对话记录
     lines.push("## 一、对话记录");
-    const userMessages = this.currentChat.filter(m => m.role === "user");
+    const userMessages = this.currentChat.filter(m => m.role === "user" && m.time >= weekAgo);
     if (userMessages.length === 0) {
       lines.push("（本周暂无对话记录）");
     } else {
@@ -1289,7 +1301,7 @@ ${content}`;
 
     // 二、引导式觉察
     lines.push("## 二、引导式觉察");
-    const guided = this.diaries.filter(d => d.source === "guided");
+    const guided = this.diaries.filter(d => d.source === "guided" && d.createdAt >= weekAgo);
     if (guided.length === 0) {
       lines.push("（本周暂无引导式觉察）");
     } else {
@@ -1310,7 +1322,7 @@ ${content}`;
 
     // 三、自由书写
     lines.push("## 三、自由书写");
-    const free = this.freeDiaries.filter(d => d.source === "free");
+    const free = this.freeDiaries.filter(d => d.source === "free" && d.createdAt >= weekAgo);
     if (free.length === 0) {
       lines.push("（本周暂无自由书写）");
     } else {
@@ -1324,7 +1336,7 @@ ${content}`;
 
     // 四、情绪日记
     lines.push("## 四、情绪日记");
-    const moods = this.moodDiaries.filter(d => d.source === "my");
+    const moods = this.moodDiaries.filter(d => d.source === "my" && d.createdAt >= weekAgo);
     if (moods.length === 0) {
       lines.push("（本周暂无情绪日记）");
     } else {
@@ -1342,18 +1354,21 @@ ${content}`;
 
     // 五、识人观察
     lines.push("## 五、识人观察");
-    const peopleWithObs = this.people.filter(p => p.observations && p.observations.length > 0);
+    const peopleWithObs = this.people.filter(p => p.observations && p.observations.some(o => o.createdAt >= weekAgo));
     if (peopleWithObs.length === 0) {
       lines.push("（本周暂无识人观察）");
     } else {
       peopleWithObs.forEach((p) => {
         lines.push(`角色：${p.name}（${p.relation}）`);
-        [...p.observations].sort((a, b) => a.createdAt - b.createdAt).forEach((o) => {
-          const t = new Date(o.createdAt).toLocaleString("zh-CN");
-          lines.push(`[${o.type}] ${t}`);
-          lines.push(o.content || "");
-          lines.push("");
-        });
+        [...p.observations]
+          .filter(o => o.createdAt >= weekAgo)
+          .sort((a, b) => a.createdAt - b.createdAt)
+          .forEach((o) => {
+            const t = new Date(o.createdAt).toLocaleString("zh-CN");
+            lines.push(`[${o.type}] ${t}`);
+            lines.push(o.content || "");
+            lines.push("");
+          });
       });
     }
     lines.push("");
@@ -1365,8 +1380,11 @@ ${content}`;
 
   exportWeeklyReport() {
     const text = this.formatWeeklyReport();
-    const date = new Date().toISOString().slice(0, 10);
-    const filename = `小树觉察室周报_${date}.txt`;
+    const now = new Date();
+    const year = now.getFullYear();
+    const weekNum = this.getISOWeekNumber(now);
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+    const filename = `酥梨周报_${year}_${weekNum}WK_${dateStr}.txt`;
     this.downloadFile(filename, text);
 
     // 记录导出时间，隐藏提醒
