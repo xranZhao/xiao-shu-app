@@ -2519,8 +2519,9 @@ ${obsText}${ctInfo}
     const importDataBtn = document.getElementById("import-data-btn");
     const importStatus = document.getElementById("import-status");
     if (importDataBtn) importDataBtn.addEventListener("click", () => this.importSparkleData());
-    // 隐藏已导入完成后的导入卡片
-    if (this.diaries.length > 40) {
+    // 如果已通过导入或之前使用积累了大量快乐日记，隐藏导入卡片
+    const happyCount = this.getHappyDiaries().length;
+    if (happyCount >= 40 || this.diaries.length > 200) {
       const importSection = document.getElementById("import-section");
       if (importSection) importSection.style.display = "none";
     }
@@ -2663,7 +2664,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=14").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=15").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
