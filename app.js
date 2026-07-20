@@ -2766,12 +2766,12 @@ ${obsText}${ctInfo}
     const happyDiaries = this.getHappyDiaries();
     let count = 0;
     for (const d of happyDiaries) {
-      if (d.aiSummary || (d.people && d.people.length > 0)) {
-        d.aiSummary = "";
-        d.people = [];
-        d.title = "";
-        count++;
-      }
+      d.aiSummary = "";
+      d.people = [];
+      d.title = "";
+      d._metaGenerated = false;
+      count++;
+    }
     }
     this.saveData();
     // 隐藏重置板块
@@ -2792,7 +2792,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=19").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=20").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
