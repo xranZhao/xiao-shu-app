@@ -507,13 +507,6 @@ html, body {
   max-width: 100%;
 }
 
-.zone-hint {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-light);
-  margin-top: 8px;
-}
-
 .category-tag {
   font-size: 11px;
   padding: 2px 8px;
@@ -1675,6 +1668,17 @@ html, body {
 .emotion-tag:active {
   background: var(--primary);
   color: #fff;
+}
+
+.emotion-tag.selected {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* 觉察日记情绪词标签区域 */
+#guided-emotion-tags {
+  margin-top: 12px;
+  min-height: 0;
 }
 
 .my-diary-input-row {

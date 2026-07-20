@@ -10,7 +10,7 @@ const App = {
   // 引导式觉察状态
   guided: {
     currentStep: 1,
-    steps: { event: "", feeling: "", defense: "", extend: "", zones: [], category: null },
+    steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null },
   },
   // 识人板块
   people: [],
@@ -262,11 +262,14 @@ const App = {
 
     // 颜色区仅在第 2 步显示
     const moodWheel = document.getElementById("guided-mood-wheel");
-    const zoneHint = document.getElementById("guided-zone-hint");
+    const emotionTags = document.getElementById("guided-emotion-tags");
     if (moodWheel) {
       moodWheel.style.display = step === 2 ? "grid" : "none";
-      if (zoneHint) zoneHint.style.display = step === 2 ? "block" : "none";
-      if (step === 2) this.renderGuidedZones();
+      if (emotionTags) emotionTags.style.display = step === 2 ? "flex" : "none";
+      if (step === 2) {
+        this.renderGuidedZones();
+        this.renderGuidedEmotionTags();
+      }
     }
 
     // 第 3 步显示当前分类标签
@@ -292,7 +295,7 @@ const App = {
   getGuidedStepQuestion(step) {
     if (step === 3) {
       return this.guided.steps.category === "happy"
-        ? "你是怎么感受这些情绪的？你补充一下文字，让我停在当下那一刻。"
+        ? "试着描述这一刻：你看到了什么、听到了什么、闻到了什么？把它放慢，像重放一段短片，一点点讲出来。这份快乐/平静在身体里多待一会儿。"
         : this.GUIDED_QUESTIONS[3];
     }
     return this.GUIDED_QUESTIONS[step];
@@ -303,6 +306,25 @@ const App = {
     document.querySelectorAll("#guided-mood-wheel .mood-zone").forEach((el) => {
       el.classList.toggle("selected", zones.includes(el.dataset.zone));
     });
+  },
+
+  renderGuidedEmotionTags() {
+    const container = document.getElementById("guided-emotion-tags");
+    if (!container) return;
+    const selectedZones = this.guided.steps.zones || [];
+    const selectedEmotions = this.guided.steps.emotions || [];
+
+    if (selectedZones.length === 0) {
+      container.innerHTML = "";
+      return;
+    }
+
+    const emotions = selectedZones.flatMap((zone) => this.emotionZones[zone]?.emotions || []);
+    const uniqueEmotions = [...new Set(emotions)];
+
+    container.innerHTML = uniqueEmotions
+      .map((e) => `<span class="emotion-tag ${selectedEmotions.includes(e) ? "selected" : ""}" data-emotion="${e}">${e}</span>`)
+      .join("");
   },
 
   classifyZones(zones) {
@@ -328,11 +350,14 @@ const App = {
     const value = document.getElementById("step-input").value.trim();
     this.guided.steps[key] = value;
 
-    // 第 2 步保存颜色区并自动分类
+    // 第 2 步保存颜色区、情绪词并自动分类
     if (this.guided.currentStep === 2) {
       const selectedZones = Array.from(document.querySelectorAll("#guided-mood-wheel .mood-zone.selected"))
         .map((el) => el.dataset.zone);
+      const selectedEmotions = Array.from(document.querySelectorAll("#guided-emotion-tags .emotion-tag.selected"))
+        .map((el) => el.dataset.emotion);
       this.guided.steps.zones = selectedZones;
+      this.guided.steps.emotions = selectedEmotions;
       this.guided.steps.category = this.classifyZones(selectedZones);
       if (selectedZones.length === 0) {
         this.showToast("未选颜色，已按情绪觉察流程继续");
@@ -362,6 +387,11 @@ const App = {
     let html = "";
     for (const [key, label] of Object.entries(labels)) {
       html += `<span class="s-label">${label}</span><span class="s-text">${this.escapeHtml(steps[key])}</span>`;
+    }
+    // 已选情绪词
+    const emotions = steps.emotions || [];
+    if (emotions.length > 0) {
+      html += `<span class="s-label">情绪词</span><span class="s-text">${this.escapeHtml(emotions.join("、"))}</span>`;
     }
     document.getElementById("summary-body").innerHTML = html;
 
@@ -2024,7 +2054,7 @@ ${obsText}${ctInfo}
     document.getElementById("save-guided-btn").addEventListener("click", () => this.saveGuidedDiary());
     // 重新来过
     document.getElementById("reset-guided-btn").addEventListener("click", () => {
-      this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], category: null } };
+      this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null } };
       this.clearGuidedDraft();
       document.getElementById("guided-step-card").style.display = "";
       document.getElementById("guided-summary").style.display = "none";
@@ -2039,6 +2069,20 @@ ${obsText}${ctInfo}
         const zone = e.target.closest(".mood-zone");
         if (!zone) return;
         zone.classList.toggle("selected");
+        const selectedZones = Array.from(guidedMoodWheel.querySelectorAll(".mood-zone.selected"))
+          .map((el) => el.dataset.zone);
+        this.guided.steps.zones = selectedZones;
+        this.renderGuidedEmotionTags();
+      });
+    }
+
+    // 觉察日记情绪词多选
+    const guidedEmotionTags = document.getElementById("guided-emotion-tags");
+    if (guidedEmotionTags) {
+      guidedEmotionTags.addEventListener("click", (e) => {
+        const tag = e.target.closest(".emotion-tag");
+        if (!tag) return;
+        tag.classList.toggle("selected");
       });
     }
 
