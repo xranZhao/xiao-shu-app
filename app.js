@@ -2450,6 +2450,15 @@ ${obsText}${ctInfo}
     if (clearDataBtn) clearDataBtn.addEventListener("click", () => this.clearAllData());
     const clearChatBtn = document.getElementById("clear-chat-btn");
     if (clearChatBtn) clearChatBtn.addEventListener("click", () => this.clearChat());
+    // 导入闪光数据
+    const importDataBtn = document.getElementById("import-data-btn");
+    const importStatus = document.getElementById("import-status");
+    if (importDataBtn) importDataBtn.addEventListener("click", () => this.importSparkleData());
+    // 隐藏已导入完成后的导入卡片
+    if (this.diaries.length > 40) {
+      const importSection = document.getElementById("import-section");
+      if (importSection) importSection.style.display = "none";
+    }
     // 高级设置展开/折叠
     const toggleAdvancedBtn = document.getElementById("toggle-advanced-btn");
     if (toggleAdvancedBtn) {
@@ -2518,6 +2527,59 @@ ${obsText}${ctInfo}
     return div.innerHTML;
   },
 
+  // ========== 导入闪光数据 ==========
+  async importSparkleData() {
+    const statusEl = document.getElementById("import-status");
+    const btn = document.getElementById("import-data-btn");
+    const existingCount = this.getHappyDiaries().length;
+
+    if (existingCount > 40) {
+      this.showToast("闪光数据已经很丰富了，无需再次导入 ✨");
+      return;
+    }
+
+    if (!confirm(`当前已有 ${existingCount} 条闪光瞬间。将导入 44 条历史快乐治愈小分队数据，确定吗？`)) return;
+
+    btn.disabled = true;
+    btn.textContent = "导入中...";
+    if (statusEl) { statusEl.style.display = "block"; statusEl.textContent = "正在加载数据..."; }
+
+    try {
+      const resp = await fetch("import_data.json");
+      if (!resp.ok) throw new Error(`加载失败 (${resp.status})`);
+      const data = await resp.json();
+      if (!Array.isArray(data)) throw new Error("数据格式不正确");
+
+      // 避免重复：按 createdAt 去重
+      const existingIds = new Set(this.diaries.map(d => d.id));
+      let imported = 0;
+      let skipped = 0;
+      for (const entry of data) {
+        if (existingIds.has(entry.id)) {
+          skipped++;
+          continue;
+        }
+        this.diaries.unshift(entry);
+        existingIds.add(entry.id);
+        imported++;
+      }
+
+      this.saveData();
+      if (statusEl) statusEl.textContent = `✅ 导入成功：新增 ${imported} 条，跳过 ${skipped} 条重复`;
+      this.showToast(`导入完成：${imported} 条新记录 ✨`);
+      // 隐藏导入区域
+      const importSection = document.getElementById("import-section");
+      if (importSection) importSection.style.display = "none";
+    } catch (err) {
+      console.error("导入失败", err);
+      if (statusEl) statusEl.textContent = "❌ 导入失败：" + err.message;
+      this.showToast("导入失败：" + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "📥 一键导入历史闪光数据";
+    }
+  },
+
   showToast(message) {
     const toast = document.getElementById("toast");
     if (!toast) return;
@@ -2530,7 +2592,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=12").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=13").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
