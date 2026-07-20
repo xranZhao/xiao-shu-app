@@ -742,11 +742,19 @@ ${historySummary}
     const prompt = `请根据下面这篇快乐/治愈日记，写一句温暖、诗意、让人想停下来的金句。
 
 要求：
-- 1-2 句话，30-60 字。
+- 1-2 句话，30-80 字。
 - 不罗列事件，不分析情绪。
-- 用第二人称「你」，像在对话。
+- 用第一人称「我」来写，就像日记主人自己在回忆、在感慨。
 - 抓取一个具体细节放大（一个动作、一句话、一个场景）。
-- 像随手翻开一张鼓励卡，语气温暖、轻、有停顿感。
+- 语气温暖、轻、有停顿感，像随手翻开一张鼓励卡。
+
+错误示例（不要这样写）：
+- "你托腮望月，风拂过你的发梢" → 第二人称，不对
+- "那天你骑车经过江边" → 第二人称，不对
+
+正确示例：
+- "我托腮望月，风拂过发梢"
+- "我骑车经过江边，江水在身后，清风在耳边"
 
 【情绪事件】${steps.event || ""}
 【身心感受】${steps.feeling || ""}
@@ -2162,7 +2170,26 @@ ${obsText}${ctInfo}
     if (cardViewEl) cardViewEl.style.display = "flex";
 
     document.getElementById("sparkle-card-date").textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
-    document.getElementById("sparkle-card-quote").textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
+    const quoteEl = document.getElementById("sparkle-card-quote");
+    quoteEl.textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
+    // 点击金句可编辑
+    quoteEl.contentEditable = "true";
+    quoteEl.spellcheck = false;
+    quoteEl.style.cursor = "text";
+    quoteEl.ondblclick = null;
+    quoteEl.addEventListener("blur", () => {
+      const newText = quoteEl.textContent.trim();
+      if (newText && newText !== (diary.aiSummary || diary.title)) {
+        diary.aiSummary = newText;
+        if (!diary.title) diary.title = newText;
+        this.saveData();
+        this.showToast("金句已更新 ✨");
+      }
+    });
+
+    // 也更新详情页的金句（如果正在看）
+    const detailQuote = document.querySelector("#sparkle-detail .sparkle-detail-quote");
+    if (detailQuote) detailQuote.textContent = diary.aiSummary || diary.title;
 
     const peopleEl = document.getElementById("sparkle-card-people");
     if (diary.people && diary.people.length > 0) {
@@ -2663,7 +2690,7 @@ ${obsText}${ctInfo}
 
   // ========== 重置闪光AI金句和人物 ==========
   resetSparkleMetadata() {
-    if (!confirm("确定要清除所有闪光卡片的 AI 金句和人物标签吗？\n\n之后翻到每张卡片时会用新的提示词重新生成。")) return;
+    if (!confirm("确定要清除所有闪光卡片的 AI 金句和人物标签吗？\n\n之后翻到每张卡片时会用新的提示词（第一人称视角）重新生成。")) return;
     const happyDiaries = this.getHappyDiaries();
     let count = 0;
     for (const d of happyDiaries) {
@@ -2675,9 +2702,10 @@ ${obsText}${ctInfo}
       }
     }
     this.saveData();
-    const statusEl = document.getElementById("reset-sparkle-status");
-    if (statusEl) { statusEl.style.display = "block"; statusEl.textContent = `✅ 已重置 ${count} 条记录，翻卡片时 AI 将重新生成。`; }
-    this.showToast(`已重置 ${count} 条 ✨`);
+    // 隐藏重置板块
+    const resetSection = document.getElementById("reset-sparkle-section");
+    if (resetSection) resetSection.style.display = "none";
+    this.showToast(`已重置 ${count} 条，翻卡片时 AI 将重新生成 ✨`);
   },
 
   showToast(message) {
@@ -2692,7 +2720,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=16").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=17").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {

@@ -2017,6 +2017,13 @@ html, body {
   justify-content: center;
   letter-spacing: 1px;
   padding: 10px 4px;
+  outline: none;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.sparkle-card-quote:focus {
+  background: rgba(139, 90, 43, 0.05);
 }
 
 .sparkle-card-people {
