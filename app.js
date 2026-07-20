@@ -2344,13 +2344,21 @@ ${obsText}${ctInfo}
     const listEl = document.getElementById("sparkle-people-list");
     const happyDiaries = this.getHappyDiaries();
 
+    // 读取用户自定义的合并映射
+    let mergeMap = {};
+    try {
+      mergeMap = JSON.parse(localStorage.getItem("xs_sparkle_merge_map") || "{}");
+    } catch (e) {}
+
     // 统计每个人物出现次数，过滤掉无意义标签
     const skipWords = new Set(["我", "他", "她", "其他人", "朋友", "同事", "孩子", "男朋友", "女朋友", "老公", "老婆"]);
     const countMap = {};
     happyDiaries.forEach((d) => {
       (d.people || []).forEach((p) => {
         if (skipWords.has(p)) return;
-        countMap[p] = (countMap[p] || 0) + 1;
+        // 应用合并映射
+        const canonical = mergeMap[p] || p;
+        countMap[canonical] = (countMap[canonical] || 0) + 1;
       });
     });
 
@@ -2363,12 +2371,31 @@ ${obsText}${ctInfo}
       listEl.innerHTML = [
         `<span class="people-chip active" data-person="__all__">全部 (${happyDiaries.length})</span>`,
         ...people.map(([name, count]) =>
-          `<span class="people-chip" data-person="${this.escapeHtml(name)}">${this.escapeHtml(name)} ${count}<button class="chip-delete" data-name="${this.escapeHtml(name)}" title="长按删除此标签">×</button></span>`
+          `<span class="people-chip" data-person="${this.escapeHtml(name)}">${this.escapeHtml(name)} ${count}<button class="chip-rename" data-name="${this.escapeHtml(name)}" title="重命名/合并此标签">✎</button><button class="chip-delete" data-name="${this.escapeHtml(name)}" title="删除此标签">×</button></span>`
         ),
       ].join("");
     }
 
+    // 如果有合并映射，显示提示
+    if (Object.keys(mergeMap).length > 0) {
+      listEl.innerHTML += '<div style="font-size:11px;color:var(--text-light);margin-top:8px;">已合并：' +
+        Object.entries(mergeMap).map(([from, to]) => `「${from}」→「${to}」`).join("、") + '</div>';
+    }
+
     filterEl.style.display = "flex";
+
+    // 重命名人物标签
+    listEl.querySelectorAll(".chip-rename").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const oldName = btn.dataset.name;
+        if (!oldName) return;
+        const newName = prompt(`将「${oldName}」重命名为（合并到已有标签会自动合并统计）：`, oldName);
+        if (!newName || newName.trim() === oldName) return;
+        this.mergeSparklePerson(oldName, newName.trim());
+        this.renderSparklePeopleFilter();
+      });
+    });
 
     // 删除人物标签事件
     listEl.querySelectorAll(".chip-delete").forEach((btn) => {
@@ -2381,6 +2408,31 @@ ${obsText}${ctInfo}
         this.renderSparklePeopleFilter();
       });
     });
+  },
+
+  mergeSparklePerson(fromName, toName) {
+    // 保存合并映射到 localStorage，持久化
+    let mergeMap = {};
+    try {
+      mergeMap = JSON.parse(localStorage.getItem("xs_sparkle_merge_map") || "{}");
+    } catch (e) {}
+    mergeMap[fromName] = toName;
+    // 如果 fromName 之前作为目标接收过其他合并，级联更新
+    for (const [k, v] of Object.entries(mergeMap)) {
+      if (v === fromName) mergeMap[k] = toName;
+    }
+    localStorage.setItem("xs_sparkle_merge_map", JSON.stringify(mergeMap));
+
+    const happyDiaries = this.getHappyDiaries();
+    for (const d of happyDiaries) {
+      if (d.people && d.people.includes(fromName)) {
+        d.people = d.people.map((p) => p === fromName ? toName : p);
+        // 去重
+        d.people = [...new Set(d.people)];
+      }
+    }
+    this.saveData();
+    this.showToast(`已将「${fromName}」合并到「${toName}」`);
   },
 
   deleteSparklePerson(name) {
@@ -2792,7 +2844,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=20").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=21").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
