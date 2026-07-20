@@ -1232,32 +1232,35 @@ ${content}`;
   },
 
   getFridayStart(timestamp) {
-    const date = new Date(timestamp);
-    const day = date.getDay(); // 0=周日, 1=周一, ..., 5=周五, 6=周六
-    const diff = (day + 2) % 7; // 到本周五的天数差（周五为基准）
-    const friday = new Date(date);
-    friday.setDate(date.getDate() - diff);
-    friday.setHours(0, 0, 0, 0);
-    return friday.getTime();
+    const d = new Date(timestamp);
+    const dDay = d.getDay();
+    // 回退到最近周五的天数: 周五0, 周六1, 周日2, 周一3, ... 周四6
+    const backDays = (dDay + 2) % 7;
+    d.setDate(d.getDate() - backDays);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
   },
 
   checkWeeklyExportReminder() {
     const banner = document.getElementById("weekly-export-banner");
     if (!banner) return;
     const now = new Date();
-    if (now.getDay() !== 5) { banner.style.display = "none"; return; }
+    const day = now.getDay();
+    // 只在周五(5)、周六(6)、周日(0)显示
+    if (day !== 5 && day !== 6 && day !== 0) { banner.style.display = "none"; return; }
 
-    let lastExportedAt = 0;
+    let lastExportedFriday = "";
     try {
       const saved = localStorage.getItem("xs_weekly_export");
       if (saved) {
         const parsed = JSON.parse(saved);
-        lastExportedAt = parsed.lastExportedAt || 0;
+        lastExportedFriday = parsed.fridayKey || "";
       }
     } catch (e) { console.error("读取周报导出记录失败", e); }
 
-    const fridayStart = this.getFridayStart(Date.now());
-    if (lastExportedAt >= fridayStart) {
+    const thisFriday = new Date(this.getFridayStart(Date.now()));
+    const thisFridayKey = thisFriday.toISOString().slice(0, 10); // "2026-07-17"
+    if (lastExportedFriday === thisFridayKey) {
       banner.style.display = "none";
     } else {
       banner.style.display = "block";
@@ -1265,9 +1268,10 @@ ${content}`;
   },
 
   dismissWeeklyReminder() {
-    const now = Date.now();
+    const thisFriday = new Date(this.getFridayStart(Date.now()));
+    const fridayKey = thisFriday.toISOString().slice(0, 10);
     try {
-      localStorage.setItem("xs_weekly_export", JSON.stringify({ lastExportedAt: now }));
+      localStorage.setItem("xs_weekly_export", JSON.stringify({ fridayKey }));
     } catch (e) { console.error("保存周报导出记录失败", e); }
     const banner = document.getElementById("weekly-export-banner");
     if (banner) banner.style.display = "none";
@@ -1276,9 +1280,9 @@ ${content}`;
   formatWeeklyReport() {
     const lines = [];
     const now = new Date().toLocaleString("zh-CN");
-    // 7天前的0:00作为统计起点
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const weekAgo = todayStart.getTime() - 7 * 24 * 60 * 60 * 1000;
+    // 以最近一个周五 0:00 为终点，往前7天
+    const fridayEnd = this.getFridayStart(Date.now());
+    const weekStart = fridayEnd - 7 * 24 * 60 * 60 * 1000;
     lines.push(`# 小树觉察室周报`);
     lines.push(`生成时间：${now}`);
     lines.push(`---`);
@@ -1286,7 +1290,7 @@ ${content}`;
 
     // 一、对话记录
     lines.push("## 一、对话记录");
-    const userMessages = this.currentChat.filter(m => m.role === "user" && m.time >= weekAgo);
+    const userMessages = this.currentChat.filter(m => m.role === "user" && m.time >= weekStart && m.time < fridayEnd + 24 * 60 * 60 * 1000);
     if (userMessages.length === 0) {
       lines.push("（本周暂无对话记录）");
     } else {
@@ -1301,7 +1305,7 @@ ${content}`;
 
     // 二、引导式觉察
     lines.push("## 二、引导式觉察");
-    const guided = this.diaries.filter(d => d.source === "guided" && d.createdAt >= weekAgo);
+    const guided = this.diaries.filter(d => d.source === "guided" && d.createdAt >= weekStart);
     if (guided.length === 0) {
       lines.push("（本周暂无引导式觉察）");
     } else {
@@ -1322,7 +1326,7 @@ ${content}`;
 
     // 三、自由书写
     lines.push("## 三、自由书写");
-    const free = this.freeDiaries.filter(d => d.source === "free" && d.createdAt >= weekAgo);
+    const free = this.freeDiaries.filter(d => d.source === "free" && d.createdAt >= weekStart);
     if (free.length === 0) {
       lines.push("（本周暂无自由书写）");
     } else {
@@ -1336,7 +1340,7 @@ ${content}`;
 
     // 四、情绪日记
     lines.push("## 四、情绪日记");
-    const moods = this.moodDiaries.filter(d => d.source === "my" && d.createdAt >= weekAgo);
+    const moods = this.moodDiaries.filter(d => d.source === "my" && d.createdAt >= weekStart);
     if (moods.length === 0) {
       lines.push("（本周暂无情绪日记）");
     } else {
@@ -1354,14 +1358,14 @@ ${content}`;
 
     // 五、识人观察
     lines.push("## 五、识人观察");
-    const peopleWithObs = this.people.filter(p => p.observations && p.observations.some(o => o.createdAt >= weekAgo));
+    const peopleWithObs = this.people.filter(p => p.observations && p.observations.some(o => o.createdAt >= weekStart));
     if (peopleWithObs.length === 0) {
       lines.push("（本周暂无识人观察）");
     } else {
       peopleWithObs.forEach((p) => {
         lines.push(`角色：${p.name}（${p.relation}）`);
         [...p.observations]
-          .filter(o => o.createdAt >= weekAgo)
+          .filter(o => o.createdAt >= weekStart)
           .sort((a, b) => a.createdAt - b.createdAt)
           .forEach((o) => {
             const t = new Date(o.createdAt).toLocaleString("zh-CN");
