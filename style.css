@@ -143,7 +143,7 @@ html, body {
   display: none;
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 70px;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
 }
 
 .tab-content.active {
@@ -279,7 +279,7 @@ html, body {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 12px 12px max(16px, env(safe-area-inset-bottom, 8px));
+  padding: 12px;
   background: var(--card-bg);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
