@@ -2179,15 +2179,15 @@ html, body {
 
 .sparkle-detail-quote {
   font-family: "KaiTi", "STKaiti", "Kaiti SC", "FangSong", serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.8;
+  line-height: 1.6;
   color: var(--text);
   text-align: center;
-  padding: 16px;
+  padding: 14px;
   background: var(--primary-soft);
   border-radius: 16px;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .sparkle-detail-tags {
@@ -2262,3 +2262,83 @@ html, body {
   font-size: 10px;
   margin-top: 2px;
 }
+
+/* ===== 浏览全部治愈小分队 ===== */
+.sparkle-browse-all {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.sparkle-browse-header {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sparkle-browse-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 400;
+}
+
+.sparkle-browse-list {
+  padding: 12px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.sparkle-browse-item {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sparkle-browse-item:active {
+  background: var(--primary-soft);
+}
+
+.sparkle-browse-item-quote {
+  font-family: "KaiTi", "STKaiti", "Kaiti SC", "FangSong", serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+  color: var(--text);
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.sparkle-browse-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.sparkle-browse-item-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sparkle-browse-item-people .people-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+

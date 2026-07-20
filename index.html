@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=24">
   <script>
     (function () {
       function setVh() {
@@ -440,6 +440,7 @@
 
         <div class="sparkle-actions">
           <button id="sparkle-next" class="sparkle-btn-primary">换一张</button>
+          <button id="sparkle-browse-all" class="sparkle-btn-text">📋 浏览全部</button>
           <button id="sparkle-filter-toggle" class="sparkle-btn-text">按人看</button>
         </div>
       </div>
@@ -458,6 +459,16 @@
           <span class="sparkle-detail-title">原文</span>
         </div>
         <div id="sparkle-detail-body" class="sparkle-detail-body"></div>
+      </div>
+
+      <!-- 浏览全部治愈小分队 -->
+      <div id="sparkle-browse-all" class="sparkle-browse-all" style="display:none;">
+        <div class="sparkle-browse-header">
+          <button id="sparkle-browse-back" class="sparkle-btn-text">← 返回</button>
+          <span>📋 全部治愈小分队</span>
+          <span class="sparkle-browse-count" id="sparkle-browse-count"></span>
+        </div>
+        <div id="sparkle-browse-list" class="sparkle-browse-list"></div>
       </div>
     </div>
 
@@ -506,7 +517,7 @@
 
   <script src="config.js?v=22"></script>
   <script src="xiaoshu-prompt.js?v=22"></script>
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>
 
