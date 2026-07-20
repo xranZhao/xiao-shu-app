@@ -18,6 +18,9 @@ const App = {
   obsType: "言",
   // 闪光页当前卡片
   sparkleCurrentDiary: null,
+  // 洗牌队列
+  sparkleQueue: [],
+  sparkleQueueIndex: 0,
 
   // 情绪颜色区数据（来自情绪盒子）
   emotionZones: {
@@ -2099,6 +2102,7 @@ ${obsText}${ctInfo}
     }
     // 切换到闪光页时渲染随机卡片
     if (tab === "sparkle") {
+      this.ensureSparkleQueue();
       this.renderSparkleCard();
     }
   },
@@ -2110,6 +2114,31 @@ ${obsText}${ctInfo}
   // ========== 闪光页：快乐治愈小分队随机回顾 ==========
   getHappyDiaries() {
     return this.diaries.filter((d) => (d.category || d.steps?.category) === "happy");
+  },
+
+  // Fisher-Yates 洗牌
+  shuffleArray(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  },
+
+  // 确保洗牌队列就绪
+  ensureSparkleQueue() {
+    const happyDiaries = this.getHappyDiaries();
+    if (happyDiaries.length === 0) {
+      this.sparkleQueue = [];
+      this.sparkleQueueIndex = 0;
+      return;
+    }
+    // 队列为空或者走完了就重新洗牌
+    if (this.sparkleQueue.length === 0 || this.sparkleQueueIndex >= this.sparkleQueue.length) {
+      this.sparkleQueue = this.shuffleArray(happyDiaries.map(d => d.id));
+      this.sparkleQueueIndex = 0;
+    }
   },
 
   async ensureHappyDiaryMetadata(diary) {
@@ -2160,9 +2189,11 @@ ${obsText}${ctInfo}
     if (cardViewEl) cardViewEl.style.display = "none";
     if (loadingEl) loadingEl.style.display = "flex";
 
-    // 随机选一篇
-    const randomIndex = Math.floor(Math.random() * happyDiaries.length);
-    const diary = happyDiaries[randomIndex];
+    // 洗牌循环：按队列顺序取下一张
+    this.ensureSparkleQueue();
+    const nextId = this.sparkleQueue[this.sparkleQueueIndex];
+    const diary = happyDiaries.find(d => d.id === nextId) || happyDiaries[0];
+    this.sparkleQueueIndex++;
     this.sparkleCurrentDiary = diary;
     await this.ensureHappyDiaryMetadata(diary);
 
@@ -2575,7 +2606,10 @@ ${obsText}${ctInfo}
 
     // ===== 闪光页事件 =====
     const sparkleNext = document.getElementById("sparkle-next");
-    if (sparkleNext) sparkleNext.addEventListener("click", () => this.renderSparkleCard());
+    if (sparkleNext) sparkleNext.addEventListener("click", () => {
+      this.ensureSparkleQueue();
+      this.renderSparkleCard();
+    });
 
     const sparkleBrowseAll = document.getElementById("sparkle-browse-all-link");
     if (sparkleBrowseAll) sparkleBrowseAll.addEventListener("click", () => this.showSparkleBrowseAll());
@@ -2720,7 +2754,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=17").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=18").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
