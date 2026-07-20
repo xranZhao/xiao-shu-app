@@ -9,7 +9,7 @@
   <title>小树觉察室</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=18">
+  <link rel="stylesheet" href="style.css?v=19">
   <script>
     (function () {
       function setVh() {
@@ -74,6 +74,7 @@
           <div class="step-progress">
             <span class="step-badge">第 <strong id="step-num">1</strong>/4 步</span>
             <span class="step-name" id="step-name">情绪事件</span>
+            <span class="category-tag" id="guided-category-tag" style="display:none;"></span>
           </div>
           <div class="step-question">
             <div class="sq-avatar">🌱</div>
@@ -82,6 +83,37 @@
             </div>
           </div>
           <textarea id="step-input" class="step-input" placeholder="在这里写下你的回答..." rows="5"></textarea>
+          <div class="zone-hint" id="guided-zone-hint" style="display:none;">可多选</div>
+          <div class="mood-wheel" id="guided-mood-wheel" style="display:none;">
+            <div class="mood-zone" data-zone="orange">
+              <span class="zone-dot" style="background:#f39c12;"></span>
+              <span class="zone-name">橙色区</span>
+            </div>
+            <div class="mood-zone" data-zone="green">
+              <span class="zone-dot" style="background:#27ae60;"></span>
+              <span class="zone-name">绿色区</span>
+            </div>
+            <div class="mood-zone" data-zone="red">
+              <span class="zone-dot" style="background:#e74c3c;"></span>
+              <span class="zone-name">红色区</span>
+            </div>
+            <div class="mood-zone" data-zone="grey">
+              <span class="zone-dot" style="background:#7f8c8d;"></span>
+              <span class="zone-name">灰色区</span>
+            </div>
+            <div class="mood-zone" data-zone="blue">
+              <span class="zone-dot" style="background:#3498db;"></span>
+              <span class="zone-name">蓝色区</span>
+            </div>
+            <div class="mood-zone" data-zone="purple">
+              <span class="zone-dot" style="background:#9b59b6;"></span>
+              <span class="zone-name">紫色区</span>
+            </div>
+            <div class="mood-zone" data-zone="brown">
+              <span class="zone-dot" style="background:#8b5a2b;"></span>
+              <span class="zone-name">棕色区</span>
+            </div>
+          </div>
           <div class="step-actions">
             <button id="step-prev-btn" class="btn-step-prev">← 上一步</button>
             <button id="step-next-btn" class="btn-step-next">下一步 →</button>
@@ -402,9 +434,9 @@
     </div>
   </div>
 
-  <script src="config.js?v=16"></script>
-  <script src="xiaoshu-prompt.js?v=16"></script>
-  <script src="app.js?v=16"></script>
+  <script src="config.js?v=19"></script>
+  <script src="xiaoshu-prompt.js?v=19"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>
 

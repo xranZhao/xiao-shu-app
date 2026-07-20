@@ -10,7 +10,7 @@ const App = {
   // 引导式觉察状态
   guided: {
     currentStep: 1,
-    steps: { event: "", feeling: "", defense: "", extend: "" },
+    steps: { event: "", feeling: "", defense: "", extend: "", zones: [], category: null },
   },
   // 识人板块
   people: [],
@@ -27,6 +27,9 @@ const App = {
     purple: { name: "紫色区", emotions: ["灰心", "疲倦", "空白感", "无力感", "被困住", "无聊", "失望", "绝望", "背叛", "恐惧"] },
     brown: { name: "棕色区", emotions: ["后悔", "内疚", "尴尬", "害羞", "受伤", "同情", "伤心"] },
   },
+
+  // 快乐治愈小分队：正向情绪颜色区
+  HAPPY_ZONES: ["orange", "green"],
 
   // 情绪日记当前选中颜色区
   myDiaryZone: null,
@@ -213,7 +216,7 @@ const App = {
   // ========== 引导式觉察 ==========
   GUIDED_QUESTIONS: {
     1: "最近发生了什么让你情绪波动的事？\n\n先不急着分析，就客观描述一下发生了什么。什么人说了什么话？做了什么事？",
-    2: "当时你感受到了什么情绪？生气？难过？委屈？无力？\n\n——没有评价，只有感受。身体上有什么感觉吗？心里堵？手发抖？肩膀紧绷？",
+    2: "当时你感受到什么情绪？——没有评价，只有感受。\n\n身体有什么感觉？心，胸，头，手，脚，肩膀，脖子在发生什么变化？",
     3: "你怎么应对这些情绪的？是发脾气骂出来了？还是忍住不说、压抑自己？还是吃东西、刷手机转移注意力？还是开始责备自己？\n\n观察一下，基于事实，不加工，不评价总结。",
     4: "以前有过类似的感受吗？往回看，有没有想到过往什么经历也是这种感觉？小时候有没有类似的事情发生过？\n\n——观察，没有评价，只是看看这个模式是不是出现过。",
   },
@@ -253,12 +256,62 @@ const App = {
   renderGuidedStep() {
     const step = this.guided.currentStep;
     document.getElementById("step-num").textContent = step;
-    document.getElementById("step-name").textContent = this.GUIDED_STEP_NAMES[step];
-    document.getElementById("step-question").textContent = this.GUIDED_QUESTIONS[step];
+    document.getElementById("step-name").textContent = this.getGuidedStepName(step);
+    document.getElementById("step-question").textContent = this.getGuidedStepQuestion(step);
     document.getElementById("step-input").value = this.guided.steps[Object.keys(this.guided.steps)[step - 1]] || "";
+
+    // 颜色区仅在第 2 步显示
+    const moodWheel = document.getElementById("guided-mood-wheel");
+    const zoneHint = document.getElementById("guided-zone-hint");
+    if (moodWheel) {
+      moodWheel.style.display = step === 2 ? "grid" : "none";
+      if (zoneHint) zoneHint.style.display = step === 2 ? "block" : "none";
+      if (step === 2) this.renderGuidedZones();
+    }
+
+    // 第 3 步显示当前分类标签
+    const categoryTag = document.getElementById("guided-category-tag");
+    if (categoryTag) {
+      categoryTag.style.display = step === 3 ? "inline-flex" : "none";
+      categoryTag.textContent = this.getCategoryLabel(this.guided.steps.category);
+      categoryTag.className = `category-tag ${this.guided.steps.category || "aware"}`;
+    }
+
     document.getElementById("step-prev-btn").style.display = step === 1 ? "none" : "";
     document.getElementById("step-next-btn").textContent = step === 4 ? "✅ 完成" : "下一步 →";
     this.saveGuidedDraft();
+  },
+
+  getGuidedStepName(step) {
+    if (step === 3) {
+      return this.guided.steps.category === "happy" ? "感受方式" : "防御方式";
+    }
+    return this.GUIDED_STEP_NAMES[step];
+  },
+
+  getGuidedStepQuestion(step) {
+    if (step === 3) {
+      return this.guided.steps.category === "happy"
+        ? "你是怎么感受这些情绪的？你补充一下文字，让我停在当下那一刻。"
+        : this.GUIDED_QUESTIONS[3];
+    }
+    return this.GUIDED_QUESTIONS[step];
+  },
+
+  renderGuidedZones() {
+    const zones = this.guided.steps.zones || [];
+    document.querySelectorAll("#guided-mood-wheel .mood-zone").forEach((el) => {
+      el.classList.toggle("selected", zones.includes(el.dataset.zone));
+    });
+  },
+
+  classifyZones(zones) {
+    if (!zones || zones.length === 0) return "aware";
+    return zones.every((zone) => this.HAPPY_ZONES.includes(zone)) ? "happy" : "aware";
+  },
+
+  getCategoryLabel(category) {
+    return category === "happy" ? "🌞 快乐治愈小分队" : "🌧 情绪觉察";
   },
 
   guidedPrev() {
@@ -274,6 +327,17 @@ const App = {
     const key = Object.keys(this.guided.steps)[this.guided.currentStep - 1];
     const value = document.getElementById("step-input").value.trim();
     this.guided.steps[key] = value;
+
+    // 第 2 步保存颜色区并自动分类
+    if (this.guided.currentStep === 2) {
+      const selectedZones = Array.from(document.querySelectorAll("#guided-mood-wheel .mood-zone.selected"))
+        .map((el) => el.dataset.zone);
+      this.guided.steps.zones = selectedZones;
+      this.guided.steps.category = this.classifyZones(selectedZones);
+      if (selectedZones.length === 0) {
+        this.showToast("未选颜色，已按情绪觉察流程继续");
+      }
+    }
 
     if (this.guided.currentStep < 4) {
       this.guided.currentStep++;
@@ -293,12 +357,19 @@ const App = {
     summary.style.display = "flex";
 
     // 构建汇总内容
-    const labels = { event: "情绪事件", feeling: "身心感受", defense: "防御方式", extend: "延展模型" };
+    const defenseLabel = steps.category === "happy" ? "感受方式" : "防御方式";
+    const labels = { event: "情绪事件", feeling: "身心感受", defense: defenseLabel, extend: "延展模型" };
     let html = "";
     for (const [key, label] of Object.entries(labels)) {
       html += `<span class="s-label">${label}</span><span class="s-text">${this.escapeHtml(steps[key])}</span>`;
     }
     document.getElementById("summary-body").innerHTML = html;
+
+    // 汇总头部显示分类标签
+    const summaryHeader = document.querySelector(".summary-header");
+    if (summaryHeader) {
+      summaryHeader.textContent = `✅ 觉察日记已完成 · ${this.getCategoryLabel(steps.category)}`;
+    }
 
     // 生成标题
     const localTitle = this.generateDiaryTitle(steps);
@@ -378,20 +449,27 @@ const App = {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const event = steps.event || "";
     const feeling = steps.feeling || "";
+    const isHappy = steps.category === "happy";
+
     // 从情绪事件中提取关键词（前2-6个字符）
     let eventKey = event.replace(/\s+/g, "").slice(0, 8);
     if (eventKey.length > 8) eventKey = eventKey.slice(0, 8);
-    if (eventKey.length < 2) eventKey = "觉察";
+    if (eventKey.length < 2) eventKey = isHappy ? "快乐" : "觉察";
+
     // 从身心感受中匹配主要情绪
-    const emotionMap = [
+    const happyEmotions = ["喜悦", "感动", "爱", "快乐", "感激", "期待", "自豪", "自信", "满意", "冷静"];
+    const awareEmotions = [
       "愤怒", "委屈", "难过", "无力", "焦虑", "恐惧", "羞耻", "内疚", "孤独",
       "失望", "烦躁", "崩溃", "压抑", "悲伤", "痛苦", "自责", "自卑", "不安全感",
     ];
+    const emotionMap = isHappy ? happyEmotions : awareEmotions;
+
     let emotion = "";
     for (const e of emotionMap) {
       if (feeling.includes(e)) { emotion = e; break; }
     }
-    if (!emotion) emotion = "情绪波动";
+    if (!emotion) emotion = isHappy ? "快乐瞬间" : "情绪波动";
+
     return `${today}-${eventKey}-${emotion}`;
   },
 
@@ -544,11 +622,13 @@ const App = {
 
 控制在 200-400 字——少即是多。
 
+${steps.category === "happy" ? "今天用户记录的是快乐/治愈/平静类情绪。回应时请帮 ta 停留在这一刻、放大美好感受，而不是跳到分析或找问题。" : ""}
+
 ## 用户今天的觉察日记
 
 【情绪事件】${steps.event}
 【身心感受】${steps.feeling}
-【防御方式】${steps.defense}
+【${steps.category === "happy" ? "感受方式" : "防御方式"}】${steps.defense}
 【延展模型】${steps.extend}
 ${historySummary}
 如果用户在今天的日记和过去的日记之间存在相似的防御模式和情绪模式，请轻轻地点一下。如果没有明显的重复，不用强行分析。`;
@@ -1944,13 +2024,23 @@ ${obsText}${ctInfo}
     document.getElementById("save-guided-btn").addEventListener("click", () => this.saveGuidedDiary());
     // 重新来过
     document.getElementById("reset-guided-btn").addEventListener("click", () => {
-      this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "" } };
+      this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], category: null } };
       this.clearGuidedDraft();
       document.getElementById("guided-step-card").style.display = "";
       document.getElementById("guided-summary").style.display = "none";
       document.getElementById("step-input").value = "";
       this.renderGuidedStep();
     });
+
+    // 觉察日记颜色区多选
+    const guidedMoodWheel = document.getElementById("guided-mood-wheel");
+    if (guidedMoodWheel) {
+      guidedMoodWheel.addEventListener("click", (e) => {
+        const zone = e.target.closest(".mood-zone");
+        if (!zone) return;
+        zone.classList.toggle("selected");
+      });
+    }
 
     // 导出
     const exportGuidedBtn = document.getElementById("export-guided-btn");
