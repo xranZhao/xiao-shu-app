@@ -2524,7 +2524,13 @@ ${obsText}${ctInfo}
     if (happyCount >= 40 || this.diaries.length > 200) {
       const importSection = document.getElementById("import-section");
       if (importSection) importSection.style.display = "none";
+      // 显示重置金句按钮
+      const resetSection = document.getElementById("reset-sparkle-section");
+      if (resetSection) resetSection.style.display = "";
     }
+    // 重置闪光金句
+    const resetSparkleBtn = document.getElementById("reset-sparkle-btn");
+    if (resetSparkleBtn) resetSparkleBtn.addEventListener("click", () => this.resetSparkleMetadata());
     // 高级设置展开/折叠
     const toggleAdvancedBtn = document.getElementById("toggle-advanced-btn");
     if (toggleAdvancedBtn) {
