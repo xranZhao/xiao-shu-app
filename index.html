@@ -7,9 +7,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>小树觉察室</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
   <script>
     (function () {
       function setVh() {
@@ -381,6 +384,10 @@
         <span class="tab-icon">📝</span>
         <span class="tab-label">日记</span>
       </button>
+      <button id="nav-sparkle" class="tab-btn">
+        <span class="tab-icon">✨</span>
+        <span class="tab-label">闪光</span>
+      </button>
       <button id="nav-people" class="tab-btn">
         <span class="tab-icon">🔍</span>
         <span class="tab-label">识人</span>
@@ -390,6 +397,60 @@
         <span class="tab-label">设置</span>
       </button>
     </nav>
+
+    <!-- 闪光页：快乐治愈小分队随机回顾 -->
+    <div id="tab-sparkle" class="tab-content">
+      <div class="sparkle-header">
+        <h2>✨ 闪光</h2>
+        <p class="sparkle-subtitle">随机出现的快乐瞬间</p>
+      </div>
+
+      <div id="sparkle-empty" class="sparkle-empty" style="display:none;">
+        <div class="sparkle-empty-icon">✨</div>
+        <p>还没有闪光瞬间</p>
+        <p class="sparkle-empty-hint">去写一篇快乐觉察日记吧</p>
+      </div>
+
+      <div id="sparkle-loading" class="sparkle-loading" style="display:none;">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <p>正在为你点亮这一张…</p>
+      </div>
+
+      <div id="sparkle-card-view" class="sparkle-card-view">
+        <div id="sparkle-card" class="sparkle-card">
+          <div class="sparkle-card-inner">
+            <div class="sparkle-card-meta">
+              <span class="sparkle-card-tag">✨ 快乐治愈小分队</span>
+              <span id="sparkle-card-date" class="sparkle-card-date"></span>
+            </div>
+            <div id="sparkle-card-quote" class="sparkle-card-quote"></div>
+            <div id="sparkle-card-people" class="sparkle-card-people"></div>
+            <button id="sparkle-view-detail" class="sparkle-view-btn">查看原文</button>
+          </div>
+        </div>
+
+        <div class="sparkle-actions">
+          <button id="sparkle-next" class="sparkle-btn-primary">换一张</button>
+          <button id="sparkle-filter-toggle" class="sparkle-btn-text">按人看</button>
+        </div>
+      </div>
+
+      <div id="sparkle-people-filter" class="sparkle-people-filter" style="display:none;">
+        <div class="sparkle-people-filter-header">
+          <span>选择人物</span>
+          <button id="sparkle-filter-close" class="sparkle-btn-text">关闭</button>
+        </div>
+        <div id="sparkle-people-list" class="sparkle-people-list"></div>
+      </div>
+
+      <div id="sparkle-detail" class="sparkle-detail" style="display:none;">
+        <div class="sparkle-detail-header">
+          <button id="sparkle-back" class="sparkle-btn-text">← 返回</button>
+          <span class="sparkle-detail-title">原文</span>
+        </div>
+        <div id="sparkle-detail-body" class="sparkle-detail-body"></div>
+      </div>
+    </div>
 
     <!-- Toast -->
     <div id="toast" class="toast"></div>
@@ -434,9 +495,9 @@
     </div>
   </div>
 
-  <script src="config.js?v=20"></script>
-  <script src="xiaoshu-prompt.js?v=20"></script>
-  <script src="app.js?v=20"></script>
+  <script src="config.js?v=21"></script>
+  <script src="xiaoshu-prompt.js?v=21"></script>
+  <script src="app.js?v=21"></script>
 </body>
 </html>
 

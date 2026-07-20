@@ -1,4 +1,4 @@
-const CACHE_NAME = "xiao-shu-app-v13";
+const CACHE_NAME = "xiao-shu-app-v14";
 const ASSETS = [
   "/xiao-shu-app/index.html",
   "/xiao-shu-app/style.css",

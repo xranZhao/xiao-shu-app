@@ -16,6 +16,8 @@ const App = {
   people: [],
   currentPersonId: null,
   obsType: "言",
+  // 闪光页当前卡片
+  sparkleCurrentDiary: null,
 
   // 情绪颜色区数据（来自情绪盒子）
   emotionZones: {
@@ -333,7 +335,7 @@ const App = {
   },
 
   getCategoryLabel(category) {
-    return category === "happy" ? "🌞 快乐治愈小分队" : "🌧 情绪觉察";
+    return category === "happy" ? "✨ 快乐治愈小分队" : "🌧 情绪觉察";
   },
 
   guidedPrev() {
@@ -684,22 +686,39 @@ ${historySummary}
     return data.choices[0].message.content;
   },
 
-  saveGuidedDiary() {
+  async saveGuidedDiary() {
     const steps = this.guided.steps;
     const title = document.getElementById("summary-title").value.trim();
     // 从 innerHTML 里获取真实反馈（处理 markdown 渲染后的内容）
     const fbEl = document.getElementById("summary-feedback");
     const feedback = fbEl ? fbEl.innerText || fbEl.textContent : "";
-    const content = `【情绪事件】\n${steps.event}\n\n【身心感受】\n${steps.feeling}\n\n【防御方式】\n${steps.defense}\n\n【延展模型】\n${steps.extend}`;
+    const content = `【情绪事件】\n${steps.event}\n\n【身心感受】\n${steps.feeling}\n\n【${steps.category === "happy" ? "感受方式" : "防御方式"}】\n${steps.defense}\n\n【延展模型】\n${steps.extend}`;
+
+    let aiSummary = "";
+    let people = [];
+    if (steps.category === "happy") {
+      try {
+        this.showToast("✨ 正在为闪光瞬间生成温暖金句…");
+        [aiSummary, people] = await Promise.all([
+          this.generateHappySummary(steps),
+          this.extractHappyPeople(steps),
+        ]);
+      } catch (err) {
+        console.error("生成闪光金句失败", err);
+      }
+    }
 
     const diary = {
       id: Date.now(),
       title: title || this.generateDiaryTitle(steps),
       date: new Date().toISOString().slice(0, 10),
       source: "guided",
+      category: steps.category,
       steps: { ...steps },
       content,
       feedback,
+      aiSummary,
+      people,
       primaryEmotion: this.extractPrimaryEmotion(steps.feeling),
       createdAt: Date.now(),
     };
@@ -708,7 +727,7 @@ ${historySummary}
     this.saveData();
 
     // 重置引导状态
-    this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "" } };
+    this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null } };
     this.clearGuidedDraft();
 
     // 重新显示引导卡片，隐藏汇总
@@ -716,7 +735,83 @@ ${historySummary}
     document.getElementById("guided-summary").style.display = "none";
     this.renderGuidedStep();
     this.renderDiaries();
-    this.showToast("觉察日记已保存 🌱");
+    this.showToast("觉察日记已保存 ✨");
+  },
+
+  async generateHappySummary(steps) {
+    const prompt = `请根据下面这篇快乐/治愈日记，写一句温暖、诗意、让人想停下来的金句。
+
+要求：
+- 1-2 句话，30-60 字。
+- 不罗列事件，不分析情绪。
+- 用第二人称「你」，像在对话。
+- 抓取一个具体细节放大（一个动作、一句话、一个场景）。
+- 像随手翻开一张鼓励卡，语气温暖、轻、有停顿感。
+
+【情绪事件】${steps.event || ""}
+【身心感受】${steps.feeling || ""}
+【感受方式】${steps.defense || ""}
+【延展模型】${steps.extend || ""}
+【情绪词】${(steps.emotions || []).join("、")}
+
+只输出金句，不要任何解释。`;
+
+    const response = await fetch(CONFIG.BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages: [
+          { role: "system", content: "你是一个擅长写温暖短句的助手。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 200,
+      }),
+    });
+    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
+  },
+
+  async extractHappyPeople(steps) {
+    const prompt = `请从下面这篇快乐/治愈日记中，提取所有出现的人物。
+
+要求：
+1. 只输出人名或称呼，如：妈妈、爸爸、他、她、孩子、朋友、同事、男朋友、女朋友等。
+2. 如果文中没有提到其他人，输出空数组 []。
+3. 只输出 JSON 数组，不要任何解释。
+
+【情绪事件】${steps.event || ""}
+【身心感受】${steps.feeling || ""}
+【感受方式】${steps.defense || ""}
+【延展模型】${steps.extend || ""}
+
+输出格式示例：["妈妈", "他"] 或 []`;
+
+    const response = await fetch(CONFIG.BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages: [
+          { role: "system", content: "你是一个只输出 JSON 数组的助手。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 100,
+      }),
+    });
+    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
+    const data = await response.json();
+    let result = data.choices[0].message.content.trim();
+    result = result.replace(/^```json\s*|\s*```$/g, "").trim();
+    try {
+      const parsed = JSON.parse(result);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
   },
 
   // ========== 自由书写 ==========
@@ -1991,10 +2086,172 @@ ${obsText}${ctInfo}
     if (tab === "people") {
       this.renderPeopleList();
     }
+    // 切换到闪光页时渲染随机卡片
+    if (tab === "sparkle") {
+      this.renderSparkleCard();
+    }
   },
 
   renderTabs() {
     this.switchTab(this.activeTab);
+  },
+
+  // ========== 闪光页：快乐治愈小分队随机回顾 ==========
+  getHappyDiaries() {
+    return this.diaries.filter((d) => (d.category || d.steps?.category) === "happy");
+  },
+
+  async ensureHappyDiaryMetadata(diary) {
+    if (diary.aiSummary && diary.people) return diary;
+    diary.aiSummary = diary.aiSummary || "";
+    diary.people = diary.people || [];
+    if (!diary.aiSummary || diary.people.length === 0) {
+      try {
+        const [aiSummary, people] = await Promise.all([
+          this.generateHappySummary(diary.steps),
+          this.extractHappyPeople(diary.steps),
+        ]);
+        diary.aiSummary = aiSummary;
+        diary.people = people;
+        this.saveData();
+      } catch (err) {
+        console.error("补生成闪光元数据失败", err);
+      }
+    }
+    return diary;
+  },
+
+  async renderSparkleCard() {
+    const happyDiaries = this.getHappyDiaries();
+    const emptyEl = document.getElementById("sparkle-empty");
+    const loadingEl = document.getElementById("sparkle-loading");
+    const cardViewEl = document.getElementById("sparkle-card-view");
+
+    if (happyDiaries.length === 0) {
+      if (emptyEl) emptyEl.style.display = "flex";
+      if (loadingEl) loadingEl.style.display = "none";
+      if (cardViewEl) cardViewEl.style.display = "none";
+      return;
+    }
+
+    if (emptyEl) emptyEl.style.display = "none";
+    if (cardViewEl) cardViewEl.style.display = "none";
+    if (loadingEl) loadingEl.style.display = "flex";
+
+    // 随机选一篇
+    const randomIndex = Math.floor(Math.random() * happyDiaries.length);
+    const diary = happyDiaries[randomIndex];
+    this.sparkleCurrentDiary = diary;
+    await this.ensureHappyDiaryMetadata(diary);
+
+    if (loadingEl) loadingEl.style.display = "none";
+    if (cardViewEl) cardViewEl.style.display = "flex";
+
+    document.getElementById("sparkle-card-date").textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
+    document.getElementById("sparkle-card-quote").textContent = diary.aiSummary || diary.title;
+
+    const peopleEl = document.getElementById("sparkle-card-people");
+    if (diary.people && diary.people.length > 0) {
+      peopleEl.innerHTML = diary.people.map((p) => `<span class="people-chip">${this.escapeHtml(p)}</span>`).join("");
+    } else {
+      peopleEl.innerHTML = "";
+    }
+
+    // 把当前日记绑定到查看原文按钮
+    const viewBtn = document.getElementById("sparkle-view-detail");
+    viewBtn.style.display = "";
+  },
+
+  showSparkleDetail(diary) {
+    const cardViewEl = document.getElementById("sparkle-card-view");
+    const detailEl = document.getElementById("sparkle-detail");
+    const detailBody = document.getElementById("sparkle-detail-body");
+
+    if (cardViewEl) cardViewEl.style.display = "none";
+    if (detailEl) detailEl.style.display = "block";
+
+    const steps = diary.steps || {};
+    const defenseLabel = diary.category === "happy" || steps.category === "happy" ? "感受方式" : "防御方式";
+    const emotions = steps.emotions || [];
+    const zones = steps.zones || [];
+
+    let html = `
+      <div class="sparkle-detail-meta">
+        <span class="sparkle-detail-tag">✨ 快乐治愈小分队</span>
+        <span class="sparkle-detail-date">${new Date(diary.createdAt).toLocaleDateString("zh-CN")}</span>
+      </div>
+      <div class="sparkle-detail-quote">${this.escapeHtml(diary.aiSummary || diary.title)}</div>
+    `;
+
+    if (emotions.length > 0 || zones.length > 0) {
+      html += `<div class="sparkle-detail-tags">`;
+      if (zones.length > 0) {
+        html += zones.map((z) => `<span class="sparkle-detail-zone">${this.emotionZones[z]?.name || z}</span>`).join("");
+      }
+      if (emotions.length > 0) {
+        html += emotions.map((e) => `<span class="sparkle-detail-emotion">${this.escapeHtml(e)}</span>`).join("");
+      }
+      html += `</div>`;
+    }
+
+    html += `
+      <div class="sparkle-detail-section"><span class="sparkle-detail-label">情绪事件</span><div class="sparkle-detail-text">${this.markdownToHtml(steps.event || "")}</div></div>
+      <div class="sparkle-detail-section"><span class="sparkle-detail-label">身心感受</span><div class="sparkle-detail-text">${this.markdownToHtml(steps.feeling || "")}</div></div>
+      <div class="sparkle-detail-section"><span class="sparkle-detail-label">${defenseLabel}</span><div class="sparkle-detail-text">${this.markdownToHtml(steps.defense || "")}</div></div>
+      <div class="sparkle-detail-section"><span class="sparkle-detail-label">延展模型</span><div class="sparkle-detail-text">${this.markdownToHtml(steps.extend || "")}</div></div>
+    `;
+
+    if (diary.feedback) {
+      html += `<div class="sparkle-detail-feedback"><span class="sparkle-detail-feedback-label">🌱 小树回应</span><div class="sparkle-detail-feedback-body">${this.markdownToHtml(diary.feedback)}</div></div>`;
+    }
+
+    detailBody.innerHTML = html;
+  },
+
+  hideSparkleDetail() {
+    const cardViewEl = document.getElementById("sparkle-card-view");
+    const detailEl = document.getElementById("sparkle-detail");
+    if (cardViewEl) cardViewEl.style.display = "flex";
+    if (detailEl) detailEl.style.display = "none";
+  },
+
+  renderSparklePeopleFilter() {
+    const filterEl = document.getElementById("sparkle-people-filter");
+    const listEl = document.getElementById("sparkle-people-list");
+    const happyDiaries = this.getHappyDiaries();
+    const people = [...new Set(happyDiaries.flatMap((d) => d.people || []))].filter(Boolean);
+
+    if (people.length === 0) {
+      listEl.innerHTML = '<div class="sparkle-empty-hint">还没有人物标签</div>';
+    } else {
+      listEl.innerHTML = [
+        `<span class="people-chip active" data-person="__all__">全部</span>`,
+        ...people.map((p) => `<span class="people-chip" data-person="${this.escapeHtml(p)}">${this.escapeHtml(p)}</span>`),
+      ].join("");
+    }
+
+    filterEl.style.display = "flex";
+  },
+
+  hideSparklePeopleFilter() {
+    const filterEl = document.getElementById("sparkle-people-filter");
+    if (filterEl) filterEl.style.display = "none";
+  },
+
+  filterSparkleByPerson(person) {
+    this.hideSparklePeopleFilter();
+    const happyDiaries = this.getHappyDiaries();
+    const filtered = person === "__all__"
+      ? happyDiaries
+      : happyDiaries.filter((d) => (d.people || []).includes(person));
+
+    if (filtered.length === 0) {
+      this.showToast("没有和这个人相关的闪光瞬间");
+      return;
+    }
+
+    const diary = filtered[Math.floor(Math.random() * filtered.length)];
+    this.showSparkleDetail(diary);
   },
 
   // ========== 事件监听 ==========
@@ -2018,7 +2275,7 @@ ${obsText}${ctInfo}
     if (modeBtn) modeBtn.addEventListener("click", () => this.toggleMode());
 
     // Tab 切换
-    ["chat", "diary", "people", "settings"].forEach((tab) => {
+    ["chat", "diary", "sparkle", "people", "settings"].forEach((tab) => {
       const btn = document.getElementById(`nav-${tab}`);
       if (btn) btn.addEventListener("click", () => this.switchTab(tab));
     });
@@ -2051,7 +2308,12 @@ ${obsText}${ctInfo}
     document.getElementById("step-next-btn").addEventListener("click", () => this.guidedNext());
 
     // 保存引导日记
-    document.getElementById("save-guided-btn").addEventListener("click", () => this.saveGuidedDiary());
+    document.getElementById("save-guided-btn").addEventListener("click", () => {
+      this.saveGuidedDiary().catch((err) => {
+        console.error("保存觉察日记失败", err);
+        this.showToast("保存失败，请检查网络或 API Key");
+      });
+    });
     // 重新来过
     document.getElementById("reset-guided-btn").addEventListener("click", () => {
       this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null } };
@@ -2200,6 +2462,34 @@ ${obsText}${ctInfo}
           panel.style.display = "none";
           toggleAdvancedBtn.textContent = "⚙️ 高级设置 ▸";
         }
+      });
+    }
+
+    // ===== 闪光页事件 =====
+    const sparkleNext = document.getElementById("sparkle-next");
+    if (sparkleNext) sparkleNext.addEventListener("click", () => this.renderSparkleCard());
+
+    const sparkleViewDetail = document.getElementById("sparkle-view-detail");
+    if (sparkleViewDetail) sparkleViewDetail.addEventListener("click", () => {
+      if (this.sparkleCurrentDiary) this.showSparkleDetail(this.sparkleCurrentDiary);
+    });
+
+    const sparkleBack = document.getElementById("sparkle-back");
+    if (sparkleBack) sparkleBack.addEventListener("click", () => this.hideSparkleDetail());
+
+    const sparkleFilterToggle = document.getElementById("sparkle-filter-toggle");
+    if (sparkleFilterToggle) sparkleFilterToggle.addEventListener("click", () => this.renderSparklePeopleFilter());
+
+    const sparkleFilterClose = document.getElementById("sparkle-filter-close");
+    if (sparkleFilterClose) sparkleFilterClose.addEventListener("click", () => this.hideSparklePeopleFilter());
+
+    const sparklePeopleList = document.getElementById("sparkle-people-list");
+    if (sparklePeopleList) {
+      sparklePeopleList.addEventListener("click", (e) => {
+        const chip = e.target.closest(".people-chip");
+        if (!chip) return;
+        const person = chip.dataset.person;
+        if (person) this.filterSparkleByPerson(person);
       });
     }
   },
