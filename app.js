@@ -2648,6 +2648,9 @@ ${obsText}${ctInfo}
       // 隐藏导入区域
       const importSection = document.getElementById("import-section");
       if (importSection) importSection.style.display = "none";
+      // 显示重置按钮
+      const resetSection = document.getElementById("reset-sparkle-section");
+      if (resetSection) resetSection.style.display = "";
     } catch (err) {
       console.error("导入失败", err);
       if (statusEl) statusEl.textContent = "❌ 导入失败：" + err.message;
@@ -2656,6 +2659,25 @@ ${obsText}${ctInfo}
       btn.disabled = false;
       btn.textContent = "📥 一键导入历史闪光数据";
     }
+  },
+
+  // ========== 重置闪光AI金句和人物 ==========
+  resetSparkleMetadata() {
+    if (!confirm("确定要清除所有闪光卡片的 AI 金句和人物标签吗？\n\n之后翻到每张卡片时会用新的提示词重新生成。")) return;
+    const happyDiaries = this.getHappyDiaries();
+    let count = 0;
+    for (const d of happyDiaries) {
+      if (d.aiSummary || (d.people && d.people.length > 0)) {
+        d.aiSummary = "";
+        d.people = [];
+        d.title = "";
+        count++;
+      }
+    }
+    this.saveData();
+    const statusEl = document.getElementById("reset-sparkle-status");
+    if (statusEl) { statusEl.style.display = "block"; statusEl.textContent = `✅ 已重置 ${count} 条记录，翻卡片时 AI 将重新生成。`; }
+    this.showToast(`已重置 ${count} 条 ✨`);
   },
 
   showToast(message) {
@@ -2670,7 +2692,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=15").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=16").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
