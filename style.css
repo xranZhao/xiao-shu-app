@@ -1872,7 +1872,6 @@ html, body {
 
 /* ===== 闪光页：快乐治愈小分队随机回顾 ===== */
 #tab-sparkle {
-  display: flex;
   flex-direction: column;
   background: var(--bg);
 }
@@ -2007,8 +2006,9 @@ html, body {
 
 .sparkle-card-quote {
   flex: 1;
-  font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
-  font-size: 23px;
+  font-family: "KaiTi", "STKaiti", "Kaiti SC", "FangSong", serif;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 1.85;
   color: var(--text);
   text-align: center;
@@ -2178,8 +2178,9 @@ html, body {
 }
 
 .sparkle-detail-quote {
-  font-family: "Noto Serif SC", "Songti SC", "SimSun", serif;
-  font-size: 20px;
+  font-family: "KaiTi", "STKaiti", "Kaiti SC", "FangSong", serif;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 1.8;
   color: var(--text);
   text-align: center;
