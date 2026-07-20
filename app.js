@@ -778,16 +778,19 @@ ${historySummary}
     const prompt = `请从下面这篇快乐/治愈日记中，提取所有出现的人物。
 
 要求：
-1. 只输出人名或称呼，如：妈妈、爸爸、他、她、孩子、朋友、同事、男朋友、女朋友等。
-2. 如果文中没有提到其他人，输出空数组 []。
-3. 只输出 JSON 数组，不要任何解释。
+1. 只输出人名、称呼或亲属称谓，包括但不限于：妈妈、爸爸、老公、老婆、男朋友、女朋友、他、她、孩子、朋友、同事、闺蜜、兄弟、希里、狸克、至夏、陈前、寒冰、十月 等。
+2. 特别注意中文语境中的亲属称呼（妈妈、爸爸、哥哥、姐姐、弟弟、妹妹、舅舅、舅妈、叔叔、阿姨、姑妈、伯父等）。
+3. 特别注意文中直接提到的朋友名字或昵称。
+4. 如果文中明确出现了人物，哪怕只提了一次，也要提取。
+5. 如果文中没有提到任何人，输出空数组 []。
+6. 只输出 JSON 数组，不要任何解释。
 
 【情绪事件】${steps.event || ""}
 【身心感受】${steps.feeling || ""}
 【感受方式】${steps.defense || ""}
 【延展模型】${steps.extend || ""}
 
-输出格式示例：["妈妈", "他"] 或 []`;
+输出格式示例：["妈妈", "爸爸", "陈前"] 或 ["希里", "狸克"] 或 []`;
 
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
@@ -2102,7 +2105,8 @@ ${obsText}${ctInfo}
   },
 
   async ensureHappyDiaryMetadata(diary) {
-    if (diary.aiSummary && diary.people) return diary;
+    // 已经同时有 aiSummary 和 people 就跳过
+    if (diary.aiSummary && diary.people && diary.people.length > 0) return diary;
     diary.aiSummary = diary.aiSummary || "";
     diary.people = diary.people || [];
     if (!diary.aiSummary || diary.people.length === 0) {
@@ -2116,6 +2120,10 @@ ${obsText}${ctInfo}
         this.saveData();
       } catch (err) {
         console.error("补生成闪光元数据失败", err);
+        // 即使 AI 失败也设个 fallback 防止反复请求
+        if (!diary.aiSummary) diary.aiSummary = diary.steps?.event?.slice(0, 60) || diary.title || "";
+        if (diary.people.length === 0) diary.people = [];
+        this.saveData();
       }
     }
     return diary;
@@ -2126,15 +2134,21 @@ ${obsText}${ctInfo}
     const emptyEl = document.getElementById("sparkle-empty");
     const loadingEl = document.getElementById("sparkle-loading");
     const cardViewEl = document.getElementById("sparkle-card-view");
+    const browseEl = document.getElementById("sparkle-browse-all");
+    const detailEl = document.getElementById("sparkle-detail");
 
     if (happyDiaries.length === 0) {
       if (emptyEl) emptyEl.style.display = "flex";
       if (loadingEl) loadingEl.style.display = "none";
       if (cardViewEl) cardViewEl.style.display = "none";
+      if (browseEl) browseEl.style.display = "none";
+      if (detailEl) detailEl.style.display = "none";
       return;
     }
 
     if (emptyEl) emptyEl.style.display = "none";
+    if (browseEl) browseEl.style.display = "none";
+    if (detailEl) detailEl.style.display = "none";
     if (cardViewEl) cardViewEl.style.display = "none";
     if (loadingEl) loadingEl.style.display = "flex";
 
@@ -2148,7 +2162,7 @@ ${obsText}${ctInfo}
     if (cardViewEl) cardViewEl.style.display = "flex";
 
     document.getElementById("sparkle-card-date").textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
-    document.getElementById("sparkle-card-quote").textContent = diary.aiSummary || diary.title;
+    document.getElementById("sparkle-card-quote").textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
 
     const peopleEl = document.getElementById("sparkle-card-people");
     if (diary.people && diary.people.length > 0) {
@@ -2165,9 +2179,11 @@ ${obsText}${ctInfo}
   showSparkleDetail(diary) {
     const cardViewEl = document.getElementById("sparkle-card-view");
     const detailEl = document.getElementById("sparkle-detail");
+    const browseEl = document.getElementById("sparkle-browse-all");
     const detailBody = document.getElementById("sparkle-detail-body");
 
     if (cardViewEl) cardViewEl.style.display = "none";
+    if (browseEl) browseEl.style.display = "none";
     if (detailEl) detailEl.style.display = "block";
 
     const steps = diary.steps || {};
@@ -2211,8 +2227,57 @@ ${obsText}${ctInfo}
   hideSparkleDetail() {
     const cardViewEl = document.getElementById("sparkle-card-view");
     const detailEl = document.getElementById("sparkle-detail");
+    const browseEl = document.getElementById("sparkle-browse-all");
     if (cardViewEl) cardViewEl.style.display = "flex";
     if (detailEl) detailEl.style.display = "none";
+    if (browseEl) browseEl.style.display = "none";
+  },
+
+  // ========== 浏览全部治愈小分队 ==========
+  showSparkleBrowseAll() {
+    const cardViewEl = document.getElementById("sparkle-card-view");
+    const detailEl = document.getElementById("sparkle-detail");
+    const browseEl = document.getElementById("sparkle-browse-all");
+    const happyDiaries = this.getHappyDiaries();
+
+    if (cardViewEl) cardViewEl.style.display = "none";
+    if (detailEl) detailEl.style.display = "none";
+    if (browseEl) browseEl.style.display = "flex";
+
+    document.getElementById("sparkle-browse-count").textContent = `共 ${happyDiaries.length} 篇`;
+    const listEl = document.getElementById("sparkle-browse-list");
+    listEl.innerHTML = "";
+
+    // 按日期倒序排列
+    const sorted = [...happyDiaries].sort((a, b) => b.createdAt - a.createdAt);
+
+    sorted.forEach((diary) => {
+      const item = document.createElement("div");
+      item.className = "sparkle-browse-item";
+      const quote = diary.aiSummary || diary.steps?.event?.slice(0, 60) || "✨";
+      const dateStr = new Date(diary.createdAt).toLocaleDateString("zh-CN");
+      const ppl = (diary.people && diary.people.length > 0)
+        ? diary.people.map((p) => `<span class="people-chip">${this.escapeHtml(p)}</span>`).join("")
+        : "";
+
+      item.innerHTML = `
+        <div class="sparkle-browse-item-quote">${this.escapeHtml(quote)}</div>
+        <div class="sparkle-browse-item-meta">
+          <span>${dateStr}</span>
+          ${ppl ? `<div class="sparkle-browse-item-people">${ppl}</div>` : ""}
+        </div>
+      `;
+
+      item.addEventListener("click", () => this.showSparkleDetail(diary));
+      listEl.appendChild(item);
+    });
+  },
+
+  hideSparkleBrowseAll() {
+    const cardViewEl = document.getElementById("sparkle-card-view");
+    const browseEl = document.getElementById("sparkle-browse-all");
+    if (cardViewEl) cardViewEl.style.display = "flex";
+    if (browseEl) browseEl.style.display = "none";
   },
 
   renderSparklePeopleFilter() {
@@ -2477,6 +2542,12 @@ ${obsText}${ctInfo}
     // ===== 闪光页事件 =====
     const sparkleNext = document.getElementById("sparkle-next");
     if (sparkleNext) sparkleNext.addEventListener("click", () => this.renderSparkleCard());
+
+    const sparkleBrowseAll = document.getElementById("sparkle-browse-all-link");
+    if (sparkleBrowseAll) sparkleBrowseAll.addEventListener("click", () => this.showSparkleBrowseAll());
+
+    const sparkleBrowseBack = document.getElementById("sparkle-browse-back");
+    if (sparkleBrowseBack) sparkleBrowseBack.addEventListener("click", () => this.hideSparkleBrowseAll());
 
     const sparkleViewDetail = document.getElementById("sparkle-view-detail");
     if (sparkleViewDetail) sparkleViewDetail.addEventListener("click", () => {
