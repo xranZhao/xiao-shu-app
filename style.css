@@ -34,6 +34,7 @@ html, body {
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
+  height: calc(var(--vh, 1vh) * 100);
   max-width: 520px;
   margin: 0 auto;
   background: var(--bg);

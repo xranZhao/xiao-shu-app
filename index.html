@@ -9,7 +9,20 @@
   <title>小树觉察室</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
+  <script>
+    (function () {
+      function setVh() {
+        document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+      }
+      setVh();
+      window.addEventListener('resize', setVh);
+      // 某些 WebView 在地址栏/工具栏显示隐藏时不会触发 resize，用 orientationchange 兜底
+      window.addEventListener('orientationchange', function () {
+        setTimeout(setVh, 100);
+      });
+    })();
+  </script>
 </head>
 <body>
   <div id="app">
