@@ -6,7 +6,7 @@ const CONFIG = {
   // DeepSeek API 配置
   API_KEY: "",  // 请在 App 设置页面填入你的 API Key
   BASE_URL: "https://api.deepseek.com/v1/chat/completions",
-  MODEL: "deepseek-chat",
+  MODEL: "deepseek-v4-pro",
 
   // 应用配置
   APP_NAME: "小树觉察室",

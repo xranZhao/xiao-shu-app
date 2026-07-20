@@ -190,12 +190,12 @@ const App = {
       : (typeof NORMAL_PROMPT !== "undefined" ? NORMAL_PROMPT : "你是一个温暖的心理洞察助手。");
     const messages = [
       { role: "system", content: systemPrompt },
-      ...this.currentChat.slice(-20).map((m) => ({ role: m.role, content: m.content })),
+      ...this.currentChat.slice(-40).map((m) => ({ role: m.role, content: m.content })),
     ];
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({ model: CONFIG.MODEL, messages, temperature: 0.8, max_tokens: 2000 }),
+      body: JSON.stringify({ model: CONFIG.MODEL, messages, temperature: 0.8, max_tokens: 4000 }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
     const data = await response.json();
@@ -566,7 +566,7 @@ ${historySummary}
           { role: "user", content: prompt },
         ],
         temperature: 0.8,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
@@ -1048,7 +1048,7 @@ ${content}`;
           { role: "user", content: prompt },
         ],
         temperature: 0.8,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
@@ -1835,7 +1835,7 @@ ${obsText}${ctInfo}
             { role: "user", content: prompt },
           ],
           temperature: 0.7,
-          max_tokens: 2000,
+          max_tokens: 4000,
         }),
       });
       if (!response.ok) { const err = await response.text(); throw new Error(`API 错误: ${err}`); }
