@@ -702,9 +702,10 @@ ${historySummary}
     if (steps.category === "happy") {
       try {
         this.showToast("✨ 正在为闪光瞬间生成温暖金句…");
+        const excluded = this.getExcludedSparklePeople();
         [aiSummary, people] = await Promise.all([
           this.generateHappySummary(steps),
-          this.extractHappyPeople(steps),
+          this.extractHappyPeople(steps, excluded),
         ]);
       } catch (err) {
         console.error("生成闪光金句失败", err);
@@ -785,7 +786,11 @@ ${historySummary}
     return data.choices[0].message.content.trim();
   },
 
-  async extractHappyPeople(steps) {
+  async extractHappyPeople(steps, excludedNames = []) {
+    const exclusionHint = excludedNames.length > 0
+      ? `\n7. 不要提取以下用户已删除/合并的人物：${excludedNames.join("、")}。如果文中只有这些名字，输出空数组 []。`
+      : "";
+
     const prompt = `请从下面这篇快乐/治愈日记中，提取所有出现的人物。
 
 要求：
@@ -794,7 +799,7 @@ ${historySummary}
 3. 特别注意文中直接提到的朋友名字或昵称。
 4. 如果文中明确出现了人物，哪怕只提了一次，也要提取。
 5. 如果文中没有提到任何人，输出空数组 []。
-6. 只输出 JSON 数组，不要任何解释。
+6. 只输出 JSON 数组，不要任何解释。${exclusionHint}
 
 【情绪事件】${steps.event || ""}
 【身心感受】${steps.feeling || ""}
@@ -1667,7 +1672,7 @@ ${content}`;
     // 防手机自动填充：检测模型框是否被填入了 API Key
     if (model.startsWith("sk-") || model.length > 40) {
       console.warn("检测到模型框被异常填充，已自动纠正");
-      model = "deepseek-chat";
+      model = "deepseek-v4-flash"; // deepseek-chat 已废弃，等价于 v4-flash 非思考模式
       document.getElementById("setting-model").value = model;
     }
 
@@ -2118,6 +2123,26 @@ ${obsText}${ctInfo}
     return this.diaries.filter((d) => (d.category || d.steps?.category) === "happy");
   },
 
+  // 用户主动删除/合并过的人物标签，后续 AI 不再提取
+  getExcludedSparklePeople() {
+    try {
+      return JSON.parse(localStorage.getItem("xs_sparkle_excluded_people") || "[]");
+    } catch (e) {
+      return [];
+    }
+  },
+  addExcludedSparklePerson(name) {
+    if (!name) return;
+    const excluded = this.getExcludedSparklePeople();
+    if (!excluded.includes(name)) {
+      excluded.push(name);
+      localStorage.setItem("xs_sparkle_excluded_people", JSON.stringify(excluded));
+    }
+  },
+  clearExcludedSparklePeople() {
+    localStorage.removeItem("xs_sparkle_excluded_people");
+  },
+
   // Fisher-Yates 洗牌
   shuffleArray(arr) {
     const a = [...arr];
@@ -2144,15 +2169,23 @@ ${obsText}${ctInfo}
   },
 
   async ensureHappyDiaryMetadata(diary) {
+    // 用户已手动编辑过人物标签，直接跳过并标记完成，尊重用户选择
+    if (diary._peopleEdited) {
+      diary._metaGenerated = true;
+      return diary;
+    }
+
     // 已生成过（有标记位）就直接跳过，避免反复请求
     if (diary._metaGenerated) return diary;
+
     diary.aiSummary = diary.aiSummary || "";
     diary.people = diary.people || [];
     if (!diary.aiSummary || diary.people.length === 0) {
       try {
+        const excluded = this.getExcludedSparklePeople();
         const [aiSummary, people] = await Promise.all([
           this.generateHappySummary(diary.steps),
-          this.extractHappyPeople(diary.steps),
+          this.extractHappyPeople(diary.steps, excluded),
         ]);
         diary.aiSummary = aiSummary;
         diary.people = people;
@@ -2424,25 +2457,37 @@ ${obsText}${ctInfo}
     localStorage.setItem("xs_sparkle_merge_map", JSON.stringify(mergeMap));
 
     const happyDiaries = this.getHappyDiaries();
+    let affected = false;
     for (const d of happyDiaries) {
       if (d.people && d.people.includes(fromName)) {
         d.people = d.people.map((p) => p === fromName ? toName : p);
         // 去重
         d.people = [...new Set(d.people)];
+        d._peopleEdited = true;
+        affected = true;
       }
     }
     this.saveData();
+    if (affected) {
+      this.addExcludedSparklePerson(fromName);
+    }
     this.showToast(`已将「${fromName}」合并到「${toName}」`);
   },
 
   deleteSparklePerson(name) {
     const happyDiaries = this.getHappyDiaries();
+    let affected = false;
     for (const d of happyDiaries) {
       if (d.people && d.people.includes(name)) {
         d.people = d.people.filter((p) => p !== name);
+        d._peopleEdited = true;
+        affected = true;
       }
     }
     this.saveData();
+    if (affected) {
+      this.addExcludedSparklePerson(name);
+    }
     this.showToast(`已删除标签「${name}」`);
   },
 
@@ -2822,9 +2867,11 @@ ${obsText}${ctInfo}
       d.people = [];
       d.title = "";
       d._metaGenerated = false;
+      d._peopleEdited = false;
       count++;
     }
     this.saveData();
+    this.clearExcludedSparklePeople();
     // 隐藏重置板块
     const resetSection = document.getElementById("reset-sparkle-section");
     if (resetSection) resetSection.style.display = "none";
