@@ -52,16 +52,16 @@ const App = {
   },
 
   init() {
-    this.loadData();
-    this.renderTabs();
-    this.renderChat();
-    this.renderDiaries();
-    this.renderMoodDiaries();
-    this.renderFreeDiaries();
-    this.renderSettings();
-    this.setupEventListeners();
-    this.setMode("xiaoshu");
-    this.checkWeeklyExportReminder();
+    try { this.loadData(); } catch (e) { console.error("init loadData error", e); }
+    try { this.renderTabs(); } catch (e) { console.error("init renderTabs error", e); }
+    try { this.renderChat(); } catch (e) { console.error("init renderChat error", e); }
+    try { this.renderDiaries(); } catch (e) { console.error("init renderDiaries error", e); }
+    try { this.renderMoodDiaries(); } catch (e) { console.error("init renderMoodDiaries error", e); }
+    try { this.renderFreeDiaries(); } catch (e) { console.error("init renderFreeDiaries error", e); }
+    try { this.renderSettings(); } catch (e) { console.error("init renderSettings error", e); }
+    try { this.setupEventListeners(); } catch (e) { console.error("init setupEventListeners error", e); }
+    try { this.setMode("xiaoshu"); } catch (e) { console.error("init setMode error", e); }
+    try { this.checkWeeklyExportReminder(); } catch (e) { console.error("init checkWeeklyExportReminder error", e); }
 
     // 首次使用检查：如果没有 API Key，提示用户去设置
     if (!CONFIG.API_KEY) {
