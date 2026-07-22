@@ -2760,8 +2760,10 @@ ${obsText}${ctInfo}
     if (exportMoodBtn) exportMoodBtn.addEventListener("click", () => this.exportAllMoodDiaries());
 
     // 反向选择事件
-    document.getElementById("reverse-prev-btn").addEventListener("click", () => this.reversePrev());
-    document.getElementById("reverse-next-btn").addEventListener("click", () => this.reverseNext());
+    const reversePrevBtn = document.getElementById("reverse-prev-btn");
+    const reverseNextBtn = document.getElementById("reverse-next-btn");
+    if (reversePrevBtn) reversePrevBtn.addEventListener("click", () => this.reversePrev());
+    if (reverseNextBtn) reverseNextBtn.addEventListener("click", () => this.reverseNext());
     const saveReverseBtn = document.getElementById("save-reverse-btn");
     if (saveReverseBtn) saveReverseBtn.addEventListener("click", () => this.saveReverseRecord());
 
@@ -2785,8 +2787,8 @@ ${obsText}${ctInfo}
     const exportFreeBtn = document.getElementById("export-free-btn");
     if (exportFreeBtn) exportFreeBtn.addEventListener("click", () => this.exportAllFreeDiaries());
 
-    const reverseSparkleNext = document.getElementById("reverse-sparkle-next");
-    if (reverseSparkleNext) reverseSparkleNext.addEventListener("click", () => { this.ensureReverseQueue(); this.renderFreeDiaries(); });
+    const reverseSparkleNextBtn = document.getElementById("reverse-sparkle-next");
+    if (reverseSparkleNextBtn) reverseSparkleNextBtn.addEventListener("click", () => { this.ensureReverseQueue(); this.renderFreeDiaries(); });
 
     // 情绪强度滑动条
     const intensityBefore = document.getElementById("reverse-intensity-before");
