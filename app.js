@@ -2468,23 +2468,26 @@ ${obsText}${ctInfo}
     if (loadingEl) loadingEl.style.display = "none";
     if (cardViewEl) cardViewEl.style.display = "flex";
 
-    document.getElementById("sparkle-card-date").textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
+    const sparkleCardDate = document.getElementById("sparkle-card-date");
+    if (sparkleCardDate) sparkleCardDate.textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
     const quoteEl = document.getElementById("sparkle-card-quote");
-    quoteEl.textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
-    // 点击金句可编辑
-    quoteEl.contentEditable = "true";
-    quoteEl.spellcheck = false;
-    quoteEl.style.cursor = "text";
-    quoteEl.ondblclick = null;
-    quoteEl.addEventListener("blur", () => {
-      const newText = quoteEl.textContent.trim();
-      if (newText && newText !== (diary.aiSummary || diary.title)) {
-        diary.aiSummary = newText;
-        if (!diary.title) diary.title = newText;
-        this.saveData();
-        this.showToast("金句已更新 ✨");
-      }
-    });
+    if (quoteEl) {
+      quoteEl.textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
+      // 点击金句可编辑
+      quoteEl.contentEditable = "true";
+      quoteEl.spellcheck = false;
+      quoteEl.style.cursor = "text";
+      quoteEl.ondblclick = null;
+      quoteEl.addEventListener("blur", () => {
+        const newText = quoteEl.textContent.trim();
+        if (newText && newText !== (diary.aiSummary || diary.title)) {
+          diary.aiSummary = newText;
+          if (!diary.title) diary.title = newText;
+          this.saveData();
+          this.showToast("金句已更新 ✨");
+        }
+      });
+    }
 
     // 也更新详情页的金句（如果正在看）
     const detailQuote = document.querySelector("#sparkle-detail .sparkle-detail-quote");
@@ -2547,7 +2550,7 @@ ${obsText}${ctInfo}
       html += `<div class="sparkle-detail-feedback"><span class="sparkle-detail-feedback-label">🌱 小树回应</span><div class="sparkle-detail-feedback-body">${this.markdownToHtml(diary.feedback)}</div></div>`;
     }
 
-    detailBody.innerHTML = html;
+    if (detailBody) detailBody.innerHTML = html;
   },
 
   hideSparkleDetail() {
@@ -2570,8 +2573,10 @@ ${obsText}${ctInfo}
     if (detailEl) detailEl.style.display = "none";
     if (browseEl) browseEl.style.display = "flex";
 
-    document.getElementById("sparkle-browse-count").textContent = `共 ${happyDiaries.length} 篇`;
+    const sbc = document.getElementById("sparkle-browse-count");
+    if (sbc) sbc.textContent = `共 ${happyDiaries.length} 篇`;
     const listEl = document.getElementById("sparkle-browse-list");
+    if (!listEl) return;
     listEl.innerHTML = "";
 
     // 按日期倒序排列
