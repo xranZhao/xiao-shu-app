@@ -1512,11 +1512,11 @@ ${content}`;
     }
     lines.push("");
 
-    // 二、引导式觉察
-    lines.push("## 二、引导式觉察");
-    const guided = this.diaries.filter(d => d.source === "guided" && d.createdAt >= weekStart);
+    // 二、觉察此刻
+    lines.push("## 二、觉察此刻");
+    const guided = this.diaries.filter(d => d.source === "guided" && (d.category || d.steps?.category) !== "happy" && d.createdAt >= weekStart);
     if (guided.length === 0) {
-      lines.push("（本周暂无引导式觉察）");
+      lines.push("（本周暂无觉察此刻）");
     } else {
       guided.forEach((d) => {
         lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
@@ -1580,6 +1580,28 @@ ${content}`;
             lines.push(o.content || "");
             lines.push("");
           });
+      });
+    }
+    lines.push("");
+    // 六、快乐治愈小分队
+    lines.push("## 六、快乐治愈小分队");
+    const happyDiaries = this.diaries.filter(d => (d.category || d.steps?.category) === "happy" && d.createdAt >= weekStart);
+    if (happyDiaries.length === 0) {
+      lines.push("（本周暂无快乐治愈小分队）");
+    } else {
+      happyDiaries.forEach((d) => {
+        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        if (d.aiSummary) {
+          lines.push(`✨ ${d.aiSummary}`);
+        }
+        if (d.people && d.people.length > 0) {
+          lines.push(`👥 一起的人：${d.people.join("、")}`);
+        }
+        if (d.steps) {
+          const ems = d.steps.emotions || [];
+          if (ems.length > 0) lines.push(`情绪词：${ems.join("、")}`);
+        }
+        lines.push("");
       });
     }
     lines.push("");
