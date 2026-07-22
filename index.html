@@ -68,7 +68,7 @@
       <div class="diary-mode-tabs">
         <button class="diary-mode-btn active" data-mode="guided">🧭 觉察此刻</button>
         <button class="diary-mode-btn" data-mode="my">🎨 日日记录</button>
-        <button class="diary-mode-btn" data-mode="free">✏️ 自由书写</button>
+        <button class="diary-mode-btn" data-mode="free">🔄 反向选择</button>
       </div>
 
       <!-- 引导式觉察 -->
@@ -253,21 +253,65 @@
         <div id="mood-diary-list" class="diary-list"></div>
       </div>
 
-      <!-- 自由书写 -->
+      <!-- 反向选择 -->
       <div id="free-diary" class="diary-mode-content">
-        <div class="diary-write">
-          <h3>✏️ 自由书写</h3>
-          <input type="text" id="free-diary-title" placeholder="标题（可选，留空自动生成）">
-          <textarea id="free-diary-content" placeholder="今天发生了什么？你有什么情绪？试着描述一下..." rows="6"></textarea>
-          <div id="free-diary-loading" class="diary-loading" style="display:none;">小树正在读你的日记...</div>
-          <button id="save-free-diary-btn" class="btn-primary">保存并获取小树回应</button>
+        <div class="reverse-card">
+          <h3>🔄 反向选择</h3>
+          <p class="reverse-subtitle">旧程序说跑，你选择了站住。记下来，这是证据。</p>
+
+          <div class="reverse-count" id="reverse-count">青回已经选择了 <strong>0</strong> 次反向</div>
+
+          <div class="reverse-inputs">
+            <div class="reverse-field">
+              <label>触发</label>
+              <input type="text" id="reverse-trigger" placeholder="发生了什么？客观描述，一句话">
+            </div>
+            <div class="reverse-field">
+              <label>旧程序会说</label>
+              <input type="text" id="reverse-old" placeholder="我脑子里闪过的自动化反应">
+            </div>
+            <div class="reverse-field">
+              <label>我选择了反向</label>
+              <input type="text" id="reverse-new" placeholder="我做了什么不一样的事">
+            </div>
+            <div class="reverse-field">
+              <label>结果</label>
+              <input type="text" id="reverse-result" placeholder="对方的反应 + 我的感受 + 和以前不同的地方">
+            </div>
+            <div class="reverse-intensity">
+              <div class="intensity-row">
+                <label>触发时</label>
+                <span class="intensity-val" id="intensity-before-val">5</span>
+                <input type="range" id="reverse-intensity-before" min="1" max="10" value="5">
+              </div>
+              <div class="intensity-row">
+                <label>现在</label>
+                <span class="intensity-val" id="intensity-after-val">5</span>
+                <input type="range" id="reverse-intensity-after" min="1" max="10" value="5">
+              </div>
+            </div>
+          </div>
+
+          <div id="reverse-loading" class="diary-loading" style="display:none;">小树正在见证...</div>
+          <button id="save-reverse-btn" class="btn-primary">保存并获取小树见证</button>
         </div>
 
-        <!-- 自由书写列表 -->
+        <!-- 反向选择列表 -->
         <div class="diary-toolbar">
-          <button id="export-free-btn" class="btn-text">📤 导出自由书写</button>
+          <button id="export-free-btn" class="btn-text">📤 导出反向选择</button>
           <span class="diary-count" id="free-diary-count"></span>
         </div>
+
+        <!-- 随机回顾 -->
+        <div id="reverse-sparkle" class="reverse-sparkle" style="display:none;">
+          <div class="reverse-sparkle-card" id="reverse-sparkle-card">
+            <div class="reverse-sparkle-date" id="reverse-sparkle-date"></div>
+            <div class="reverse-sparkle-quote" id="reverse-sparkle-quote"></div>
+            <div class="reverse-sparkle-detail" id="reverse-sparkle-detail"></div>
+          </div>
+          <button id="reverse-sparkle-next" class="sparkle-btn-primary">换一张</button>
+        </div>
+
         <div id="free-diary-list" class="diary-list"></div>
       </div>
 

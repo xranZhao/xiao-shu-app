@@ -5,7 +5,10 @@ const App = {
   currentChat: [],
   diaries: [],        // 觉察日记
   moodDiaries: [],    // 情绪日记
-  freeDiaries: [],    // 自由书写
+  freeDiaries: [],    // 反向选择
+  // 反向选择随机回顾
+  reverseQueue: [],
+  reverseQueueIndex: 0,
   activeTab: "chat",
   // 引导式觉察状态
   guided: {
@@ -810,57 +813,116 @@ ${historySummary}`;
     }
   },
 
-  // ========== 自由书写 ==========
-  async saveFreeDiary() {
-    const titleInput = document.getElementById("free-diary-title");
-    const contentInput = document.getElementById("free-diary-content");
-    const title = titleInput.value.trim();
-    const content = contentInput.value.trim();
-    if (!content) { this.showToast("请先写下今天的觉察"); return; }
+  // ========== 反向选择 ==========
+  async saveReverseRecord() {
+    const trigger = document.getElementById("reverse-trigger").value.trim();
+    const oldProgram = document.getElementById("reverse-old").value.trim();
+    const newChoice = document.getElementById("reverse-new").value.trim();
+    const result = document.getElementById("reverse-result").value.trim();
+    const intensityBefore = parseInt(document.getElementById("reverse-intensity-before").value);
+    const intensityAfter = parseInt(document.getElementById("reverse-intensity-after").value);
 
-    this.showFreeDiaryLoading(true);
+    if (!trigger || !newChoice) { this.showToast("请至少填写触发和我选择了反向"); return; }
+
+    this.showReverseLoading(true);
     let feedback = "";
     try {
-      feedback = await this.callAIFeedback(content);
+      feedback = await this.callReverseFeedback({ trigger, oldProgram, newChoice, result, intensityBefore, intensityAfter });
     } catch (err) {
       console.error(err);
-      feedback = "（小树反馈获取失败，你可以稍后再试）";
+      feedback = "（小树见证获取失败，但你的选择依然有效。）";
     }
 
-    const diary = {
+    const record = {
       id: Date.now(),
-      title: title || new Date().toLocaleDateString("zh-CN"),
-      date: new Date().toISOString().slice(0, 10),
-      source: "free",
-      content,
+      trigger,
+      oldProgram,
+      newChoice,
+      result,
+      intensityBefore,
+      intensityAfter,
       feedback,
       createdAt: Date.now(),
     };
 
-    this.freeDiaries.unshift(diary);
+    this.freeDiaries.unshift(record);
     this.saveData();
-    titleInput.value = "";
-    contentInput.value = "";
+
+    // 清空表单
+    document.getElementById("reverse-trigger").value = "";
+    document.getElementById("reverse-old").value = "";
+    document.getElementById("reverse-new").value = "";
+    document.getElementById("reverse-result").value = "";
+    document.getElementById("reverse-intensity-before").value = "5";
+    document.getElementById("reverse-intensity-after").value = "5";
+    document.getElementById("intensity-before-val").textContent = "5";
+    document.getElementById("intensity-after-val").textContent = "5";
+
     this.renderFreeDiaries();
-    this.showFreeDiaryLoading(false);
-    this.showToast("自由书写已保存 🌱");
+    this.showReverseLoading(false);
+    this.showToast("反向选择已记录 🔄");
   },
 
-  showFreeDiaryLoading(show) {
-    const btn = document.getElementById("save-free-diary-btn");
-    const loading = document.getElementById("free-diary-loading");
+  showReverseLoading(show) {
+    const btn = document.getElementById("save-reverse-btn");
+    const loading = document.getElementById("reverse-loading");
     if (btn) btn.disabled = show;
     if (loading) loading.style.display = show ? "block" : "none";
+  },
+
+  async callReverseFeedback(record) {
+    const prompt = `这是我的内化体验记录。在我用新程序处理事情的时候，请用小树的视角做见证。
+
+先白描你读到这条记录时的感受——不是评价我做了什么，是你身体里闪过什么。
+
+然后在我写的具体细节里，帮我轻轻地聚焦——"你做到的，具体是这个。"
+
+不需要分析，不需要建议。就像帮我把这个证据捡起来，放在手里。
+
+你可以叫我青回。
+
+【触发】${record.trigger}
+【旧程序会说】${record.oldProgram}
+【我选择了反向】${record.newChoice}
+【结果】${record.result}
+【情绪变化】${record.intensityBefore} → ${record.intensityAfter}`;
+
+    const response = await fetch(CONFIG.BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages: [
+          { role: "system", content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理洞察助手。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 2000,
+      }),
+    });
+    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
+    const data = await response.json();
+    return data.choices[0].message.content;
   },
 
   renderFreeDiaries() {
     const list = document.getElementById("free-diary-list");
     const countEl = document.getElementById("free-diary-count");
+    const reverseCount = document.getElementById("reverse-count");
+    const reverseSparkle = document.getElementById("reverse-sparkle");
     if (!list) return;
-    if (countEl) countEl.textContent = `共 ${this.freeDiaries.length} 篇`;
+    const total = this.freeDiaries.length;
+    if (countEl) countEl.textContent = `共 ${total} 条`;
+    if (reverseCount) reverseCount.innerHTML = `青回已经选择了 <strong>${total}</strong> 次反向`;
 
-    if (this.freeDiaries.length === 0) {
-      list.innerHTML = '<div class="empty">还没有自由书写，开始你的第一篇吧 ✍️</div>';
+    // 随机回顾区域
+    if (reverseSparkle) {
+      reverseSparkle.style.display = total > 0 ? "block" : "none";
+      if (total > 0) this.renderReverseSparkle();
+    }
+
+    if (total === 0) {
+      list.innerHTML = '<div class="empty">还没有反向选择记录<br>下一次旧程序说跑的时候，站住，然后回来记下。</div>';
       return;
     }
 
@@ -870,20 +932,25 @@ ${historySummary}`;
       card.className = "diary-card";
       card.dataset.id = String(d.id);
 
+      const title = `${new Date(d.createdAt).toLocaleDateString("zh-CN")} · ${d.trigger.slice(0, 20)}`;
+
       card.innerHTML = `
         <div class="diary-header">
           <div class="diary-header-main">
-            <h4>${this.escapeHtml(d.title)}</h4>
+            <h4>${this.escapeHtml(title)}</h4>
             <span class="diary-date">${new Date(d.createdAt).toLocaleString("zh-CN")}</span>
           </div>
           <span class="expand-icon">▶</span>
         </div>
         <div class="diary-body">
-          <div class="diary-content">${this.markdownToHtml(d.content)}</div>
-          <div class="diary-feedback">
-            <div class="feedback-label">🌱 小树回应</div>
-            <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
+          <div class="reverse-mini">
+            <div><span class="s-label">触发</span> ${this.escapeHtml(d.trigger)}</div>
+            <div><span class="s-label">旧程序</span> ${this.escapeHtml(d.oldProgram || "未记录")}</div>
+            <div><span class="s-label">反向选择</span> ${this.escapeHtml(d.newChoice)}</div>
+            <div><span class="s-label">结果</span> ${this.escapeHtml(d.result || "未记录")}</div>
+            <div><span class="s-label">情绪</span> ${d.intensityBefore || "-"} → ${d.intensityAfter || "-"}</div>
           </div>
+          ${d.feedback ? `<div class="diary-feedback"><div class="feedback-label">🌱 小树见证</div><div class="feedback-body">${this.markdownToHtml(d.feedback)}</div></div>` : ""}
           <div class="diary-card-actions">
             <button class="btn-text" onclick="App.exportFreeDiary(${d.id})">📤 导出</button>
             <button class="btn-text danger" onclick="App.deleteFreeDiary(${d.id})">删除</button>
@@ -892,20 +959,65 @@ ${historySummary}`;
       `;
 
       const header = card.querySelector(".diary-header");
-      header.addEventListener("click", () => {
-        card.classList.toggle("expanded");
-      });
-
+      header.addEventListener("click", () => { card.classList.toggle("expanded"); });
       list.appendChild(card);
     });
   },
 
+  renderReverseSparkle() {
+    const total = this.freeDiaries.length;
+    if (total === 0) return;
+    // 洗牌
+    if (this.reverseQueue.length === 0 || this.reverseQueueIndex >= this.reverseQueue.length) {
+      this.reverseQueue = this.shuffleArray(this.freeDiaries.map(d => d.id));
+      this.reverseQueueIndex = 0;
+    }
+    const id = this.reverseQueue[this.reverseQueueIndex];
+    this.reverseQueueIndex++;
+    const d = this.freeDiaries.find(r => r.id === id) || this.freeDiaries[0];
+    if (!d) return;
+
+    const dateStr = new Date(d.createdAt).toLocaleDateString("zh-CN");
+    document.getElementById("reverse-sparkle-date").textContent = dateStr;
+    document.getElementById("reverse-sparkle-quote").textContent = d.newChoice;
+    const detail = document.getElementById("reverse-sparkle-detail");
+    detail.innerHTML = `
+      <div class="rs-line"><span>触发：</span>${this.escapeHtml(d.trigger)}</div>
+      <div class="rs-line"><span>旧程序：</span>${this.escapeHtml(d.oldProgram || "—")}</div>
+      <div class="rs-line"><span>结果：</span>${this.escapeHtml(d.result || "—")}</div>
+      <div class="rs-line"><span>情绪：</span>${d.intensityBefore || "-"} → ${d.intensityAfter || "-"}</div>
+    `;
+  },
+
   deleteFreeDiary(id) {
-    if (!confirm("确定删除这条自由书写吗？")) return;
+    if (!confirm("确定删除这条反向选择记录吗？")) return;
     this.freeDiaries = this.freeDiaries.filter((d) => d.id !== id);
     this.saveData();
     this.renderFreeDiaries();
-    this.showToast("自由书写已删除");
+    this.showToast("反向选择记录已删除");
+  },
+
+  exportFreeDiary(id) {
+    const d = this.freeDiaries.find(r => r.id === id);
+    if (!d) return;
+    const dateStr = new Date(d.createdAt).toLocaleDateString("zh-CN").replace(/[/:]/g, "-");
+    const filename = `反向选择_${dateStr}.txt`;
+    let text = `反向选择 · ${new Date(d.createdAt).toLocaleString("zh-CN")}\n\n`;
+    text += `触发：${d.trigger}\n`;
+    text += `旧程序会说：${d.oldProgram || "未记录"}\n`;
+    text += `我选择了反向：${d.newChoice}\n`;
+    text += `结果：${d.result || "未记录"}\n`;
+    text += `情绪：${d.intensityBefore || "-"} → ${d.intensityAfter || "-"}\n\n`;
+    text += `【🌱 小树见证】\n${d.feedback}\n`;
+    this.downloadFile(filename, text);
+  },
+
+  exportAllFreeDiaries() {
+    if (this.freeDiaries.length === 0) { this.showToast("没有反向选择记录可导出"); return; }
+    for (const d of this.freeDiaries) {
+      this.exportFreeDiary(d.id);
+    }
+    this.showToast(`已导出 ${this.freeDiaries.length} 条反向选择记录`);
   },
 
   extractPrimaryEmotion(feelingText) {
@@ -1232,33 +1344,6 @@ ${historySummary}`;
     if (btn) btn.textContent = "播放";
   },
 
-  async callAIFeedback(content) {
-    const today = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
-    const prompt = `这是我的觉察日记（自由书写）。请先用反移情的技术白描我的感受——不是安慰我，也不是分析我，就是让我看到"原来我是这样的感觉"。一两句就够了。
-
-然后再用你（谢小树）的视角，调用你课程中的具体模型和框架，帮我看清行为模式背后的核心需求。可以尖锐，可以直接引用课程里的概念和金句。不要泛泛而谈，要具体到我的文本。看到什么就直说。
-
-${content}`;
-
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          {
-            role: "system",
-            content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理洞察助手。",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4000,
-      }),
-    });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    return data.choices[0].message.content;
   },
 
   renderDiaries() {
@@ -1412,23 +1497,7 @@ ${content}`;
     this.showToast(`已导出 ${this.moodDiaries.length} 篇日日记录`);
   },
 
-  exportFreeDiary(id) {
-    const d = this.freeDiaries.find(dd => dd.id === id);
-    if (!d) return;
-    const filename = (d.title || "自由书写").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
-    let text = `标题：${d.title}\n日期：${d.date}\n类型：自由书写\n\n`;
-    text += `${d.content}\n\n`;
-    text += `【🌱 小树回应】\n${d.feedback}\n`;
-    this.downloadFile(filename, text);
-  },
 
-  exportAllFreeDiaries() {
-    if (this.freeDiaries.length === 0) { this.showToast("没有自由书写可导出"); return; }
-    for (const d of this.freeDiaries) {
-      this.exportFreeDiary(d.id);
-    }
-    this.showToast(`已导出 ${this.freeDiaries.length} 篇自由书写`);
-  },
 
   // ========== 一键周报导出 ==========
   getISOWeekNumber(date) {
@@ -1533,15 +1602,18 @@ ${content}`;
     }
     lines.push("");
 
-    // 三、自由书写
-    lines.push("## 三、自由书写");
-    const free = this.freeDiaries.filter(d => d.source === "free" && d.createdAt >= weekStart);
-    if (free.length === 0) {
-      lines.push("（本周暂无自由书写）");
+    // 三、反向选择
+    lines.push("## 三、反向选择");
+    const reverse = this.freeDiaries.filter(d => d.createdAt >= weekStart);
+    if (reverse.length === 0) {
+      lines.push("（本周暂无反向选择）");
     } else {
-      free.forEach((d) => {
-        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
-        lines.push(d.content || "");
+      reverse.forEach((d) => {
+        lines.push(`${new Date(d.createdAt).toLocaleString("zh-CN")} · ${d.trigger.slice(0, 30)}`);
+        lines.push(`旧程序：${d.oldProgram || "未记录"}`);
+        lines.push(`反向选择：${d.newChoice}`);
+        lines.push(`结果：${d.result || "未记录"}`);
+        lines.push(`情绪：${d.intensityBefore || "-"} → ${d.intensityAfter || "-"}`);
         lines.push("");
       });
     }
@@ -2154,6 +2226,15 @@ ${obsText}${ctInfo}
   },
 
   // 确保洗牌队列就绪
+  ensureReverseQueue() {
+    const total = this.freeDiaries.length;
+    if (total === 0) { this.reverseQueue = []; this.reverseQueueIndex = 0; return; }
+    if (this.reverseQueue.length === 0 || this.reverseQueueIndex >= this.reverseQueue.length) {
+      this.reverseQueue = this.shuffleArray(this.freeDiaries.map(d => d.id));
+      this.reverseQueueIndex = 0;
+    }
+  },
+
   ensureSparkleQueue() {
     const happyDiaries = this.getHappyDiaries();
     if (happyDiaries.length === 0) {
@@ -2538,7 +2619,7 @@ ${obsText}${ctInfo}
       if (btn) btn.addEventListener("click", () => this.switchTab(tab));
     });
 
-    // 日记模式切换（觉察日记 / 情绪日记 / 自由书写）
+    // 日记模式切换（觉察日记 / 情绪日记 / 反向选择）
     document.querySelectorAll(".diary-mode-btn").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const mode = e.target.dataset.mode;
@@ -2613,12 +2694,21 @@ ${obsText}${ctInfo}
     const exportMoodBtn = document.getElementById("export-mood-btn");
     if (exportMoodBtn) exportMoodBtn.addEventListener("click", () => this.exportAllMoodDiaries());
 
-    // 自由书写事件
-    const saveFreeDiaryBtn = document.getElementById("save-free-diary-btn");
-    if (saveFreeDiaryBtn) saveFreeDiaryBtn.addEventListener("click", () => this.saveFreeDiary());
+    // 反向选择事件
+    const saveReverseBtn = document.getElementById("save-reverse-btn");
+    if (saveReverseBtn) saveReverseBtn.addEventListener("click", () => this.saveReverseRecord());
 
     const exportFreeBtn = document.getElementById("export-free-btn");
     if (exportFreeBtn) exportFreeBtn.addEventListener("click", () => this.exportAllFreeDiaries());
+
+    const reverseSparkleNext = document.getElementById("reverse-sparkle-next");
+    if (reverseSparkleNext) reverseSparkleNext.addEventListener("click", () => { this.ensureReverseQueue(); this.renderFreeDiaries(); });
+
+    // 情绪强度滑动条
+    const intensityBefore = document.getElementById("reverse-intensity-before");
+    const intensityAfter = document.getElementById("reverse-intensity-after");
+    if (intensityBefore) intensityBefore.addEventListener("input", function() { document.getElementById("intensity-before-val").textContent = this.value; });
+    if (intensityAfter) intensityAfter.addEventListener("input", function() { document.getElementById("intensity-after-val").textContent = this.value; });
 
     // 周报导出提醒
     const weeklyExportBtn = document.getElementById("weekly-export-btn");
