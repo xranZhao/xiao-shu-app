@@ -36,12 +36,14 @@ const App = {
   // 快乐治愈小分队：正向情绪颜色区
   HAPPY_ZONES: ["orange", "green"],
 
-  // 情绪日记当前选中颜色区
-  myDiaryZone: null,
-  // 情绪日记分步状态
+  // 日日记录当前选中颜色区（支持多选）
+  myDiaryZones: [],
+  // 日日记录当前选中情绪词（支持多选）
+  myDiaryEmotions: [],
+  // 日日记录分步状态
   moodStep: {
     current: 1,
-    total: 4,
+    total: 3,
     landingTimer: null,
     landingSeconds: 20,
   },
@@ -932,9 +934,9 @@ ${historySummary}`;
     }, 300);
   },
 
-  // ========== 情绪日记 ==========
+  // ========== 日日记录 ==========
   openMyDiaryWithZone(zone) {
-    // 切换到日记 Tab 和情绪日记模式
+    // 切换到日记 Tab 和日日记录模式
     this.switchTab("diary");
     document.querySelectorAll(".diary-mode-btn").forEach(b => b.classList.remove("active"));
     const myBtn = document.querySelector('.diary-mode-btn[data-mode="my"]');
@@ -942,7 +944,7 @@ ${historySummary}`;
     document.querySelectorAll(".diary-mode-content").forEach(c => c.classList.remove("active"));
     document.getElementById("my-diary").classList.add("active");
     this.resetMoodStep();
-    this.selectMyDiaryZone(zone);
+    if (zone) this.toggleMyDiaryZone(zone);
   },
 
   resetMoodStep() {
@@ -952,33 +954,43 @@ ${historySummary}`;
       this.moodStep.landingTimer = null;
     }
     this.moodStep.landingSeconds = 20;
+    this.myDiaryZones = [];
+    this.myDiaryEmotions = [];
     this.renderMoodStep();
   },
 
-  selectMyDiaryZone(zone) {
-    this.myDiaryZone = zone;
+  toggleMyDiaryZone(zone) {
+    const idx = this.myDiaryZones.indexOf(zone);
+    if (idx >= 0) {
+      this.myDiaryZones.splice(idx, 1);
+    } else {
+      this.myDiaryZones.push(zone);
+    }
     document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(el => {
-      el.classList.toggle("selected", el.dataset.zone === zone);
+      el.classList.toggle("selected", this.myDiaryZones.includes(el.dataset.zone));
     });
-    this.renderMyDiaryEmotionTags(zone);
+    this.renderMyDiaryEmotionTags();
   },
 
-  renderMyDiaryEmotionTags(zone) {
+  renderMyDiaryEmotionTags() {
     const container = document.getElementById("my-diary-emotion-tags");
     if (!container) return;
-    if (!zone) {
+    if (this.myDiaryZones.length === 0) {
       container.innerHTML = "";
       return;
     }
-    const emotions = this.emotionZones[zone]?.emotions || [];
-    container.innerHTML = emotions.map(e => `<span class="emotion-tag">${e}</span>`).join("");
+    const emotions = this.myDiaryZones.flatMap(z => this.emotionZones[z]?.emotions || []);
+    const uniqueEmotions = [...new Set(emotions)];
+    container.innerHTML = uniqueEmotions.map(e =>
+      `<span class="emotion-tag ${this.myDiaryEmotions.includes(e) ? 'selected' : ''}" data-emotion="${e}">${e}</span>`
+    ).join("");
   },
 
   renderMoodStep() {
     const badge = document.getElementById("mood-step-badge");
     const nameEl = document.getElementById("mood-step-name");
-    const steps = ["落地", "情绪命名", "安放今天的日子", "感受体验"];
-    const stepNames = ["落地", "情绪命名", "安放今天的日子", "感受体验"];
+    const steps = ["感受今天一天的情绪", "聊聊今天的日子", "落地"];
+    const stepNames = ["感受今天一天的情绪", "聊聊今天的日子", "落地"];
     if (badge) badge.textContent = `第 ${this.moodStep.current} / ${this.moodStep.total} 步`;
     if (nameEl) nameEl.textContent = stepNames[this.moodStep.current - 1] || "";
 
@@ -990,11 +1002,11 @@ ${historySummary}`;
     const nextBtn = document.getElementById("mood-next-btn");
     if (prevBtn) prevBtn.style.visibility = this.moodStep.current === 1 ? "hidden" : "visible";
     if (nextBtn) {
-      nextBtn.textContent = this.moodStep.current === this.moodStep.total ? "保存情绪日记" : "下一步 →";
+      nextBtn.textContent = this.moodStep.current === 2 ? "保存并进入落地" : this.moodStep.current === this.moodStep.total ? "进入冥想" : "下一步 →";
       nextBtn.disabled = false;
     }
 
-    if (this.moodStep.current === 1) {
+    if (this.moodStep.current === 3) {
       this.startLandingTimer();
     } else {
       this.stopLandingTimer();
@@ -1022,11 +1034,12 @@ ${historySummary}`;
       if (hintEl) {
         if (seconds <= 15) hintEl.textContent = "感受身体与椅子/床的接触";
         if (seconds <= 10) hintEl.textContent = "让肩膀松一点，再松一点";
-        if (seconds <= 5) hintEl.textContent = "准备好后，进入下一步";
+        if (seconds <= 5) hintEl.textContent = "准备好后，进入冥想催眠";
       }
       if (seconds <= 0) {
         this.stopLandingTimer();
         if (nextBtn) nextBtn.disabled = false;
+        if (hintEl) hintEl.textContent = "准备好了，点击进入冥想";
       }
     }, 1000);
   },
@@ -1049,11 +1062,17 @@ ${historySummary}`;
   },
 
   nextMoodStep() {
-    if (this.moodStep.current < this.moodStep.total) {
+    if (this.moodStep.current === 2) {
+      // 第2步 → 保存数据并进入第3步（落地）
+      this.saveMyDiary();
+      this.moodStep.current++;
+      this.renderMoodStep();
+    } else if (this.moodStep.current < this.moodStep.total) {
       this.moodStep.current++;
       this.renderMoodStep();
     } else {
-      this.saveMyDiary();
+      // 第3步 → 进入冥想（数据已在第2步保存）
+      this.startRelaxFlow();
     }
   },
 
@@ -1065,36 +1084,36 @@ ${historySummary}`;
   },
 
   saveMyDiary() {
-    const bodyInput = document.getElementById("my-body");
     const emotionInput = document.getElementById("my-emotion");
-    const needInput = document.getElementById("my-need");
-    const actionInput = document.getElementById("my-action");
-    const body = (bodyInput?.value || "").trim();
-    const emotion = emotionInput.value.trim();
-    const need = needInput.value.trim();
-    const action = actionInput.value.trim();
+    const todayInput = document.getElementById("my-today");
+    const emotion = (emotionInput?.value || "").trim();
+    const today = (todayInput?.value || "").trim();
 
-    if (!emotion && !need && !action && !body) {
-      this.showToast("请至少填写一项");
+    const zones = this.myDiaryZones.length > 0 ? [...this.myDiaryZones] : [];
+    const emotions = this.myDiaryEmotions.length > 0 ? [...this.myDiaryEmotions] : [];
+    // 手动输入的情绪也加入
+    if (emotion && !emotions.includes(emotion)) emotions.push(emotion);
+
+    if (emotions.length === 0 && !today) {
+      this.showToast("请至少选择一个情绪或写点今天的日子");
       return;
     }
 
     const date = new Date().toISOString().slice(0, 10);
-    const zoneName = this.myDiaryZone ? this.emotionZones[this.myDiaryZone].name : "未选择";
-    const title = `${date}-${emotion || "情绪"}-${zoneName}`;
-    const content = `身体感受：${body || "未记录"}\n情绪颜色区：${zoneName}\n今天最强烈的情绪：${emotion || "未记录"}\n它可能指向的需求：${need || "未记录"}\n我做的一件小事：${action || "未记录"}`;
+    const zoneNames = zones.length > 0 ? zones.map(z => this.emotionZones[z].name).join("、") : "未选择";
+    const emotionStr = emotions.join("、") || "未记录";
+    const title = `${date}-${emotionStr}-${zoneNames}`;
+    const content = `情绪颜色区：${zoneNames}\n今天最强烈的情绪：${emotionStr}\n\n聊聊今天的日子：${today || "未记录"}`;
 
     const diary = {
       id: Date.now(),
       title,
       date,
       source: "my",
-      colorZone: this.myDiaryZone,
-      colorZoneName: zoneName,
-      body,
-      emotion,
-      need,
-      action,
+      colorZones: zones,
+      colorZoneNames: zoneNames,
+      emotions: emotions,
+      today,
       content,
       feedback: "",
       createdAt: Date.now(),
@@ -1103,19 +1122,16 @@ ${historySummary}`;
     this.moodDiaries.unshift(diary);
     this.saveData();
 
-    // 清空输入并回到第一步
-    if (bodyInput) bodyInput.value = "";
-    emotionInput.value = "";
-    needInput.value = "";
-    actionInput.value = "";
-    this.selectMyDiaryZone(null);
-    this.resetMoodStep();
+    // 清空输入
+    if (emotionInput) emotionInput.value = "";
+    if (todayInput) todayInput.value = "";
+    this.myDiaryZones = [];
+    this.myDiaryEmotions = [];
+    document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(el => el.classList.remove("selected"));
+    if (document.getElementById("my-diary-emotion-tags")) document.getElementById("my-diary-emotion-tags").innerHTML = "";
 
     this.renderMoodDiaries();
-    this.showToast("情绪日记已保存，进入冥想催眠 🌙");
-
-    // 直接进入冥想催眠：10 秒镇定 + 自动播放催眠音频
-    this.startRelaxFlow();
+    this.showToast("日日记录已保存，进入落地呼吸 🌙");
   },
 
   // ========== 放松流程：10 秒镇定 + 催眠音频 ==========
@@ -1315,7 +1331,7 @@ ${content}`;
     if (countEl) countEl.textContent = `共 ${this.moodDiaries.length} 篇`;
 
     if (this.moodDiaries.length === 0) {
-      list.innerHTML = '<div class="empty">还没有情绪日记，完成一次冥想式 check-in 吧 🌙</div>';
+      list.innerHTML = '<div class="empty">还没有日日记录，完成一次睡前安放吧 🌙</div>';
       return;
     }
 
@@ -1335,11 +1351,9 @@ ${content}`;
         </div>
         <div class="diary-body">
           <div class="diary-my-mini">
-            <div><span class="s-label">身体感受</span> ${this.escapeHtml(d.body || "未记录")}</div>
-            <div><span class="s-label">颜色区</span> ${this.escapeHtml(d.colorZoneName || "未选择")}</div>
-            <div><span class="s-label">情绪</span> ${this.escapeHtml(d.emotion || "未记录")}</div>
-            <div><span class="s-label">需求</span> ${this.escapeHtml(d.need || "未记录")}</div>
-            <div><span class="s-label">行动</span> ${this.escapeHtml(d.action || "未记录")}</div>
+            <div><span class="s-label">颜色区</span> ${this.escapeHtml(d.colorZoneNames || "未选择")}</div>
+            <div><span class="s-label">情绪</span> ${this.escapeHtml((d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录"))}</div>
+            <div><span class="s-label">今天的日子</span> ${this.escapeHtml(d.today || d.action || "未记录")}</div>
           </div>
           <div class="diary-card-actions">
             <button class="btn-text" onclick="App.exportMoodDiary(${d.id})">📤 导出</button>
@@ -1383,18 +1397,19 @@ ${content}`;
   exportMoodDiary(id) {
     const d = this.moodDiaries.find(dd => dd.id === id);
     if (!d) return;
-    const filename = (d.title || "情绪日记").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
-    let text = `标题：${d.title}\n日期：${d.date}\n类型：情绪日记\n\n`;
-    text += `身体感受：${d.body || "未记录"}\n颜色区：${d.colorZoneName || "未选择"}\n情绪：${d.emotion || "未记录"}\n需求：${d.need || "未记录"}\n行动：${d.action || "未记录"}\n\n`;
+    const filename = (d.title || "日日记录").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
+    let text = `标题：${d.title}\n日期：${d.date}\n类型：日日记录\n\n`;
+    text += `颜色区：${d.colorZoneNames || "未选择"}\n情绪：${(d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录")}\n\n`;
+    text += `聊聊今天的日子：\n${d.today || d.action || "未记录"}\n`;
     this.downloadFile(filename, text);
   },
 
   exportAllMoodDiaries() {
-    if (this.moodDiaries.length === 0) { this.showToast("没有情绪日记可导出"); return; }
+    if (this.moodDiaries.length === 0) { this.showToast("没有日日记录可导出"); return; }
     for (const d of this.moodDiaries) {
       this.exportMoodDiary(d.id);
     }
-    this.showToast(`已导出 ${this.moodDiaries.length} 篇情绪日记`);
+    this.showToast(`已导出 ${this.moodDiaries.length} 篇日日记录`);
   },
 
   exportFreeDiary(id) {
@@ -1532,19 +1547,17 @@ ${content}`;
     }
     lines.push("");
 
-    // 四、情绪日记
-    lines.push("## 四、情绪日记");
+    // 四、日日记录
+    lines.push("## 四、日日记录");
     const moods = this.moodDiaries.filter(d => d.source === "my" && d.createdAt >= weekStart);
     if (moods.length === 0) {
-      lines.push("（本周暂无情绪日记）");
+      lines.push("（本周暂无日日记录）");
     } else {
       moods.forEach((d) => {
         lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
-        lines.push(`身体感受：${d.body || "未记录"}`);
-        lines.push(`颜色区：${d.colorZoneName || "未选择"}`);
-        lines.push(`情绪：${d.emotion || "未记录"}`);
-        lines.push(`需求：${d.need || "未记录"}`);
-        lines.push(`行动：${d.action || "未记录"}`);
+        lines.push(`颜色区：${d.colorZoneNames || "未选择"}`);
+        lines.push(`情绪：${(d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录")}`);
+        lines.push(`今天的日子：${d.today || d.action || "未记录"}`);
         lines.push("");
       });
     }
@@ -1612,11 +1625,11 @@ ${content}`;
   },
 
   deleteMoodDiary(id) {
-    if (!confirm("确定删除这条情绪日记吗？")) return;
+    if (!confirm("确定删除这条日日记录吗？")) return;
     this.moodDiaries = this.moodDiaries.filter((d) => d.id !== id);
     this.saveData();
     this.renderMoodDiaries();
-    this.showToast("情绪日记已删除");
+    this.showToast("日日记录已删除");
   },
 
   // ========== 设置 ==========
@@ -2611,21 +2624,31 @@ ${obsText}${ctInfo}
     const relaxClose = document.getElementById("relax-close");
     if (relaxClose) relaxClose.addEventListener("click", () => this.closeRelaxOverlay());
 
-    // 情绪日记颜色区选择
+    // 日日记录颜色区多选
     document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(zone => {
       zone.addEventListener("click", (e) => {
         const zoneKey = e.currentTarget.dataset.zone;
-        this.selectMyDiaryZone(zoneKey);
+        this.toggleMyDiaryZone(zoneKey);
       });
     });
 
-    // 我的日记情绪标签选择
-    document.getElementById("my-diary-emotion-tags").addEventListener("click", (e) => {
-      if (e.target.classList.contains("emotion-tag")) {
-        const input = document.getElementById("my-emotion");
-        input.value = e.target.textContent;
-      }
-    });
+    // 日日记录情绪标签多选
+    const myDiaryEmotionTags = document.getElementById("my-diary-emotion-tags");
+    if (myDiaryEmotionTags) {
+      myDiaryEmotionTags.addEventListener("click", (e) => {
+        const tag = e.target.closest(".emotion-tag");
+        if (!tag) return;
+        const em = tag.dataset.emotion;
+        const idx = this.myDiaryEmotions.indexOf(em);
+        if (idx >= 0) {
+          this.myDiaryEmotions.splice(idx, 1);
+          tag.classList.remove("selected");
+        } else {
+          this.myDiaryEmotions.push(em);
+          tag.classList.add("selected");
+        }
+      });
+    }
 
     // ===== 识人板块事件 =====
     document.getElementById("add-person-btn").addEventListener("click", () => this.showPersonForm());

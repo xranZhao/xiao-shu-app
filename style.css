@@ -1692,7 +1692,7 @@ html, body {
   margin-bottom: 6px;
 }
 
-.my-diary-input-row input {
+.my-diary-input-row textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1700,11 +1700,36 @@ html, body {
   font-size: 14px;
   font-family: inherit;
   background: #fff;
+  resize: vertical;
+  min-height: 80px;
 }
 
-.my-diary-input-row input:focus {
+.my-diary-input-row textarea:focus {
   outline: none;
   border-color: var(--primary-light);
+}
+
+.body-hint {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--primary-soft);
+  border-radius: 12px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.body-hint-label {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.body-hint-examples {
+  font-size: 13px;
+  color: var(--text-light);
+  font-style: italic;
 }
 
 /* 放松浮层 */
