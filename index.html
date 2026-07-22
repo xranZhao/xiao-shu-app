@@ -255,51 +255,73 @@
 
       <!-- 反向选择 -->
       <div id="free-diary" class="diary-mode-content">
-        <div class="reverse-card">
+        <div class="reverse-card" id="reverse-step-card">
           <h3>🔄 反向选择</h3>
-          <p class="reverse-subtitle">旧程序说跑，你选择了站住。记下来，这是证据。</p>
+          <p class="reverse-subtitle">大脑听到的道理永远都无法成为你身体的部分。改变一定是在体验中发生。</p>
 
-          <div class="reverse-count" id="reverse-count">青回已经选择了 <strong>0</strong> 次反向</div>
+          <div class="reverse-count" id="reverse-count">至春已经选择了 <strong>0</strong> 次反向</div>
 
-          <div class="reverse-inputs">
-            <div class="reverse-field">
-              <label>触发</label>
-              <input type="text" id="reverse-trigger" placeholder="发生了什么？客观描述，一句话">
-            </div>
-            <div class="reverse-field">
-              <label>旧程序会说</label>
-              <input type="text" id="reverse-old" placeholder="我脑子里闪过的自动化反应">
-            </div>
-            <div class="reverse-field">
-              <label>我选择了反向</label>
-              <input type="text" id="reverse-new" placeholder="我做了什么不一样的事">
-            </div>
-            <div class="reverse-field">
-              <label>结果</label>
-              <input type="text" id="reverse-result" placeholder="对方的反应 + 我的感受 + 和以前不同的地方">
-            </div>
-            <div class="reverse-intensity">
-              <div class="intensity-row">
-                <label>触发时</label>
+          <div class="step-progress">
+            <span class="step-badge">第 <strong id="reverse-step-num">1</strong>/4 步</span>
+            <span class="step-name" id="reverse-step-name">触发</span>
+          </div>
+
+          <div class="step-question">
+            <div class="sq-avatar">🔄</div>
+            <div class="sq-bubble" id="reverse-step-hint">发生了什么？客观描述，一句话。</div>
+          </div>
+
+          <!-- Step 1: 触发 -->
+          <div class="reverse-step-content" id="reverse-step-1">
+            <input type="text" id="reverse-trigger" class="reverse-input" placeholder="什么人说了什么话？做了什么事？">
+            <div class="intensity-inline">
+              <label>触发时的情绪强度</label>
+              <div class="intensity-slider-row">
                 <span class="intensity-val" id="intensity-before-val">5</span>
                 <input type="range" id="reverse-intensity-before" min="1" max="10" value="5">
               </div>
-              <div class="intensity-row">
-                <label>现在</label>
+            </div>
+          </div>
+
+          <!-- Step 2: 旧程序 -->
+          <div class="reverse-step-content" id="reverse-step-2" style="display:none;">
+            <input type="text" id="reverse-old" class="reverse-input" placeholder="那个瞬间，旧程序在你脑子里说了什么？">
+          </div>
+
+          <!-- Step 3: 反向选择 -->
+          <div class="reverse-step-content" id="reverse-step-3" style="display:none;">
+            <input type="text" id="reverse-new" class="reverse-input" placeholder="你做了什么不一样的事？">
+          </div>
+
+          <!-- Step 4: 结果 -->
+          <div class="reverse-step-content" id="reverse-step-4" style="display:none;">
+            <input type="text" id="reverse-result" class="reverse-input" placeholder="对方什么反应？你什么感受？和以前哪里不同？">
+            <div class="intensity-inline">
+              <label>现在的情绪强度</label>
+              <div class="intensity-slider-row">
                 <span class="intensity-val" id="intensity-after-val">5</span>
                 <input type="range" id="reverse-intensity-after" min="1" max="10" value="5">
               </div>
             </div>
           </div>
 
-          <div id="reverse-loading" class="diary-loading" style="display:none;">小树正在见证...</div>
-          <button id="save-reverse-btn" class="btn-primary">保存并获取小树见证</button>
+          <div class="step-actions">
+            <button id="reverse-prev-btn" class="btn-step-prev" style="display:none;">← 上一步</button>
+            <button id="reverse-next-btn" class="btn-step-next">下一步 →</button>
+          </div>
         </div>
 
-        <!-- 反向选择列表 -->
-        <div class="diary-toolbar">
-          <button id="export-free-btn" class="btn-text">📤 导出反向选择</button>
-          <span class="diary-count" id="free-diary-count"></span>
+        <!-- 汇总 + 小树见证 -->
+        <div id="reverse-summary" class="guided-summary-card" style="display:none;">
+          <div class="summary-header">🔄 反向选择记录</div>
+          <div class="summary-body" id="reverse-summary-body"></div>
+          <div id="reverse-loading" class="diary-loading" style="display:none;">小树正在见证...</div>
+          <div class="summary-feedback-label" id="reverse-feedback-label">🌱 小树见证</div>
+          <div class="summary-feedback" id="reverse-feedback"></div>
+          <div class="summary-actions">
+            <button id="save-reverse-btn" class="btn-primary">💾 保存这条记录</button>
+            <button id="reset-reverse-btn" class="btn-text">重新来过</button>
+          </div>
         </div>
 
         <!-- 随机回顾 -->
@@ -312,6 +334,11 @@
           <button id="reverse-sparkle-next" class="sparkle-btn-primary">换一张</button>
         </div>
 
+        <!-- 反向选择列表 -->
+        <div class="diary-toolbar">
+          <button id="export-free-btn" class="btn-text">📤 导出反向选择</button>
+          <span class="diary-count" id="free-diary-count"></span>
+        </div>
         <div id="free-diary-list" class="diary-list"></div>
       </div>
 

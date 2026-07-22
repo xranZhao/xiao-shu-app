@@ -816,41 +816,116 @@ ${historySummary}`;
   },
 
   // ========== 反向选择 ==========
-  async saveReverseRecord() {
-    const trigger = document.getElementById("reverse-trigger").value.trim();
-    const oldProgram = document.getElementById("reverse-old").value.trim();
-    const newChoice = document.getElementById("reverse-new").value.trim();
-    const result = document.getElementById("reverse-result").value.trim();
-    const intensityBefore = parseInt(document.getElementById("reverse-intensity-before").value);
-    const intensityAfter = parseInt(document.getElementById("reverse-intensity-after").value);
+  reverseStep: { current: 1, total: 4, steps: { trigger: "", triggerIntensity: 5, oldProgram: "", newChoice: "", result: "", resultIntensity: 5 } },
 
-    if (!trigger || !newChoice) { this.showToast("请至少填写触发和我选择了反向"); return; }
+  renderReverseStep() {
+    const step = this.reverseStep.current;
+    document.getElementById("reverse-step-num").textContent = step;
+    const names = ["触发", "旧程序", "反向选择", "结果"];
+    const hints = [
+      "发生了什么？客观描述，一句话。",
+      "那个瞬间，旧程序在你脑子里说了什么？",
+      "你做了什么不一样的事？",
+      "对方什么反应？你什么感受？和以前哪里不同？",
+    ];
+    document.getElementById("reverse-step-name").textContent = names[step - 1];
+    document.getElementById("reverse-step-hint").textContent = hints[step - 1];
 
-    this.showReverseLoading(true);
-    let feedback = "";
+    for (let i = 1; i <= 4; i++) {
+      document.getElementById(`reverse-step-${i}`).style.display = i === step ? "block" : "none";
+    }
+
+    document.getElementById("reverse-prev-btn").style.display = step === 1 ? "none" : "";
+    document.getElementById("reverse-next-btn").textContent = step === 4 ? "✅ 完成" : "下一步 →";
+  },
+
+  reversePrev() {
+    if (this.reverseStep.current <= 1) return;
+    this.reverseStep.current--;
+    this.renderReverseStep();
+  },
+
+  reverseNext() {
+    const step = this.reverseStep.current;
+    if (step === 1) {
+      this.reverseStep.steps.trigger = document.getElementById("reverse-trigger").value.trim();
+      this.reverseStep.steps.triggerIntensity = parseInt(document.getElementById("reverse-intensity-before").value);
+    } else if (step === 2) {
+      this.reverseStep.steps.oldProgram = document.getElementById("reverse-old").value.trim();
+    } else if (step === 3) {
+      this.reverseStep.steps.newChoice = document.getElementById("reverse-new").value.trim();
+    }
+
+    if (step < 4) {
+      this.reverseStep.current++;
+      this.renderReverseStep();
+    } else {
+      // 第4步保存数据
+      this.reverseStep.steps.result = document.getElementById("reverse-result").value.trim();
+      this.reverseStep.steps.resultIntensity = parseInt(document.getElementById("reverse-intensity-after").value);
+      this.showReverseSummary();
+    }
+  },
+
+  async showReverseSummary() {
+    const s = this.reverseStep.steps;
+    document.getElementById("reverse-step-card").style.display = "none";
+    document.getElementById("reverse-summary").style.display = "flex";
+
+    let html = "";
+    html += `<span class="s-label">触发</span><span class="s-text">${this.escapeHtml(s.trigger)} · 情绪 ${s.triggerIntensity}/10</span>`;
+    html += `<span class="s-label">旧程序</span><span class="s-text">${this.escapeHtml(s.oldProgram || "未记录")}</span>`;
+    html += `<span class="s-label">反向选择</span><span class="s-text">${this.escapeHtml(s.newChoice)}</span>`;
+    html += `<span class="s-label">结果</span><span class="s-text">${this.escapeHtml(s.result || "未记录")} · 现在情绪 ${s.resultIntensity}/10</span>`;
+    document.getElementById("reverse-summary-body").innerHTML = html;
+
+    if (!CONFIG.API_KEY) {
+      document.getElementById("reverse-feedback-label").textContent = "🌱 缺少 API Key";
+      document.getElementById("reverse-feedback").innerHTML = "请先到「⚙️ 设置」填入 API Key。";
+      return;
+    }
+
+    document.getElementById("reverse-feedback-label").textContent = "🌱 小树正在见证...";
+    document.getElementById("reverse-feedback").innerHTML = "";
+
     try {
-      feedback = await this.callReverseFeedback({ trigger, oldProgram, newChoice, result, intensityBefore, intensityAfter });
+      const feedback = await this.callReverseFeedback({
+        trigger: s.trigger, oldProgram: s.oldProgram, newChoice: s.newChoice,
+        result: s.result, intensityBefore: s.triggerIntensity, intensityAfter: s.resultIntensity,
+      });
+      document.getElementById("reverse-feedback-label").textContent = "🌱 小树见证";
+      document.getElementById("reverse-feedback").innerHTML = this.markdownToHtml(feedback);
+      this.reverseStep._feedback = feedback;
     } catch (err) {
       console.error(err);
-      feedback = "（小树见证获取失败，但你的选择依然有效。）";
+      document.getElementById("reverse-feedback-label").textContent = "🌱 小树见证（获取失败）";
+      document.getElementById("reverse-feedback").innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}</div>`;
     }
+  },
+
+  saveReverseRecord() {
+    const s = this.reverseStep.steps;
 
     const record = {
       id: Date.now(),
-      trigger,
-      oldProgram,
-      newChoice,
-      result,
-      intensityBefore,
-      intensityAfter,
-      feedback,
+      trigger: s.trigger,
+      oldProgram: s.oldProgram,
+      newChoice: s.newChoice,
+      result: s.result,
+      intensityBefore: s.triggerIntensity,
+      intensityAfter: s.resultIntensity,
+      feedback: this.reverseStep._feedback || "",
       createdAt: Date.now(),
     };
 
     this.freeDiaries.unshift(record);
     this.saveData();
 
-    // 清空表单
+    // 重置
+    this.reverseStep = { current: 1, total: 4, steps: { trigger: "", triggerIntensity: 5, oldProgram: "", newChoice: "", result: "", resultIntensity: 5 } };
+    this.reverseStep._feedback = "";
+    document.getElementById("reverse-step-card").style.display = "";
+    document.getElementById("reverse-summary").style.display = "none";
     document.getElementById("reverse-trigger").value = "";
     document.getElementById("reverse-old").value = "";
     document.getElementById("reverse-new").value = "";
@@ -859,17 +934,9 @@ ${historySummary}`;
     document.getElementById("reverse-intensity-after").value = "5";
     document.getElementById("intensity-before-val").textContent = "5";
     document.getElementById("intensity-after-val").textContent = "5";
-
+    this.renderReverseStep();
     this.renderFreeDiaries();
-    this.showReverseLoading(false);
-    this.showToast("反向选择已记录 🔄");
-  },
-
-  showReverseLoading(show) {
-    const btn = document.getElementById("save-reverse-btn");
-    const loading = document.getElementById("reverse-loading");
-    if (btn) btn.disabled = show;
-    if (loading) loading.style.display = show ? "block" : "none";
+    this.showToast("反向选择已保存 🔄");
   },
 
   async callReverseFeedback(record) {
@@ -877,7 +944,7 @@ ${historySummary}`;
 
 不用解释你在做什么，直接开始。在我写的具体细节里，帮我轻轻地聚焦——"你做到的，具体是这个。"就像帮我把这个证据捡起来，放在手里。
 
-你可以叫我青回。
+你可以叫我至春。
 
 【触发】${record.trigger}
 【旧程序会说】${record.oldProgram}
@@ -911,7 +978,7 @@ ${historySummary}`;
     if (!list) return;
     const total = this.freeDiaries.length;
     if (countEl) countEl.textContent = `共 ${total} 条`;
-    if (reverseCount) reverseCount.innerHTML = `青回已经选择了 <strong>${total}</strong> 次反向`;
+    if (reverseCount) reverseCount.innerHTML = `至春已经选择了 <strong>${total}</strong> 次反向`;
 
     // 随机回顾区域
     if (reverseSparkle) {
@@ -2172,6 +2239,7 @@ ${obsText}${ctInfo}
       this.renderDiaries();
       this.renderMoodDiaries();
       this.renderFreeDiaries();
+      this.renderReverseStep();
     }
     // 切换到识人页时渲染角色列表
     if (tab === "people") {
@@ -2635,6 +2703,7 @@ ${obsText}${ctInfo}
           this.renderMoodDiaries();
         } else if (mode === "free") {
           document.getElementById("free-diary").classList.add("active");
+          this.renderReverseStep();
           this.renderFreeDiaries();
         }
       });
@@ -2693,8 +2762,27 @@ ${obsText}${ctInfo}
     if (exportMoodBtn) exportMoodBtn.addEventListener("click", () => this.exportAllMoodDiaries());
 
     // 反向选择事件
+    document.getElementById("reverse-prev-btn").addEventListener("click", () => this.reversePrev());
+    document.getElementById("reverse-next-btn").addEventListener("click", () => this.reverseNext());
     const saveReverseBtn = document.getElementById("save-reverse-btn");
     if (saveReverseBtn) saveReverseBtn.addEventListener("click", () => this.saveReverseRecord());
+
+    const resetReverseBtn = document.getElementById("reset-reverse-btn");
+    if (resetReverseBtn) resetReverseBtn.addEventListener("click", () => {
+      this.reverseStep = { current: 1, total: 4, steps: { trigger: "", triggerIntensity: 5, oldProgram: "", newChoice: "", result: "", resultIntensity: 5 } };
+      this.reverseStep._feedback = "";
+      document.getElementById("reverse-step-card").style.display = "";
+      document.getElementById("reverse-summary").style.display = "none";
+      document.getElementById("reverse-trigger").value = "";
+      document.getElementById("reverse-old").value = "";
+      document.getElementById("reverse-new").value = "";
+      document.getElementById("reverse-result").value = "";
+      document.getElementById("reverse-intensity-before").value = "5";
+      document.getElementById("reverse-intensity-after").value = "5";
+      document.getElementById("intensity-before-val").textContent = "5";
+      document.getElementById("intensity-after-val").textContent = "5";
+      this.renderReverseStep();
+    });
 
     const exportFreeBtn = document.getElementById("export-free-btn");
     if (exportFreeBtn) exportFreeBtn.addEventListener("click", () => this.exportAllFreeDiaries());

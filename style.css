@@ -1734,15 +1734,18 @@ html, body {
 
 /* ===== 反向选择 ===== */
 .reverse-card {
+  margin: 12px;
   background: var(--card-bg);
   border-radius: 16px;
-  padding: 20px;
-  margin: 12px;
+  padding: 16px;
   border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .reverse-card h3 {
-  margin: 0 0 4px;
+  margin: 0;
   color: var(--primary);
   font-size: 18px;
 }
@@ -1750,8 +1753,9 @@ html, body {
 .reverse-subtitle {
   font-size: 13px;
   color: var(--text-light);
-  margin: 0 0 16px;
-  line-height: 1.5;
+  margin: 0;
+  line-height: 1.6;
+  font-style: italic;
 }
 
 .reverse-count {
@@ -1761,7 +1765,6 @@ html, body {
   padding: 10px;
   background: var(--primary-soft);
   border-radius: 12px;
-  margin-bottom: 16px;
 }
 
 .reverse-count strong {
@@ -1769,66 +1772,60 @@ html, body {
   font-weight: 700;
 }
 
-.reverse-inputs {
+/* 反向选择步骤内容 */
+.reverse-step-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
-.reverse-field label {
-  display: block;
-  font-size: 13px;
-  color: var(--text-light);
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.reverse-field input {
+.reverse-input {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 14px;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 15px;
   font-family: inherit;
   outline: none;
-  background: #fff;
-}
-
-.reverse-field input:focus {
-  border-color: var(--primary-light);
-}
-
-.reverse-intensity {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
   background: var(--bg);
+  line-height: 1.6;
+}
+
+.reverse-input:focus {
+  border-color: var(--primary-light);
+  background: var(--card-bg);
+}
+
+/* 情绪强度行内 */
+.intensity-inline {
+  padding: 10px 12px;
+  background: var(--primary-soft);
   border-radius: 10px;
 }
 
-.intensity-row {
+.intensity-inline label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.intensity-slider-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.intensity-row label {
-  font-size: 13px;
-  color: var(--text-light);
-  width: 50px;
+.intensity-slider-row .intensity-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  width: 28px;
+  text-align: center;
   flex-shrink: 0;
 }
 
-.intensity-val {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--primary);
-  width: 24px;
-  text-align: center;
-}
-
-.intensity-row input[type="range"] {
+.intensity-slider-row input[type="range"] {
   flex: 1;
   -webkit-appearance: none;
   height: 6px;
@@ -1837,7 +1834,7 @@ html, body {
   outline: none;
 }
 
-.intensity-row input[type="range"]::-webkit-slider-thumb {
+.intensity-slider-row input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 24px;
   height: 24px;
