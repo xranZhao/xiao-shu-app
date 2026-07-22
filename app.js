@@ -1409,8 +1409,6 @@ ${historySummary}`;
     if (btn) btn.textContent = "播放";
   },
 
-  },
-
   renderDiaries() {
     // 只显示觉察日记（来源为 guided 且非 happy），不显示导入的快乐治愈小分队
     const guidedDiaries = this.diaries.filter((d) => d.source === "guided" && (d.category || d.steps?.category) !== "happy");
