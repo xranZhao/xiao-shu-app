@@ -2727,13 +2727,7 @@ ${obsText}${ctInfo}
     if (happyCount >= 40 || this.diaries.length > 200) {
       const importSection = document.getElementById("import-section");
       if (importSection) importSection.style.display = "none";
-      // 显示重置金句按钮
-      const resetSection = document.getElementById("reset-sparkle-section");
-      if (resetSection) resetSection.style.display = "";
     }
-    // 重置闪光金句
-    const resetSparkleBtn = document.getElementById("reset-sparkle-btn");
-    if (resetSparkleBtn) resetSparkleBtn.addEventListener("click", () => this.resetSparkleMetadata());
     // 高级设置展开/折叠
     const toggleAdvancedBtn = document.getElementById("toggle-advanced-btn");
     if (toggleAdvancedBtn) {
@@ -2854,9 +2848,6 @@ ${obsText}${ctInfo}
       // 隐藏导入区域
       const importSection = document.getElementById("import-section");
       if (importSection) importSection.style.display = "none";
-      // 显示重置按钮
-      const resetSection = document.getElementById("reset-sparkle-section");
-      if (resetSection) resetSection.style.display = "";
     } catch (err) {
       console.error("导入失败", err);
       if (statusEl) statusEl.textContent = "❌ 导入失败：" + err.message;
@@ -2867,26 +2858,6 @@ ${obsText}${ctInfo}
     }
   },
 
-  // ========== 重置闪光AI金句和人物 ==========
-  resetSparkleMetadata() {
-    if (!confirm("确定要清除所有闪光卡片的 AI 金句和人物标签吗？\n\n之后翻到每张卡片时会用新的提示词（第一人称视角）重新生成。")) return;
-    const happyDiaries = this.getHappyDiaries();
-    let count = 0;
-    for (const d of happyDiaries) {
-      d.aiSummary = "";
-      d.people = [];
-      d.title = "";
-      d._metaGenerated = false;
-      d._peopleEdited = false;
-      count++;
-    }
-    this.saveData();
-    this.clearExcludedSparklePeople();
-    // 隐藏重置板块
-    const resetSection = document.getElementById("reset-sparkle-section");
-    if (resetSection) resetSection.style.display = "none";
-    this.showToast(`已重置 ${count} 条，翻卡片时 AI 将重新生成 ✨`);
-  },
 
   showToast(message) {
     const toast = document.getElementById("toast");
