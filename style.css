@@ -1786,6 +1786,8 @@ html, body {
   padding: 14px;
   font-size: 15px;
   font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
   outline: none;
   background: var(--bg);
   line-height: 1.6;

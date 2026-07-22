@@ -6,9 +6,6 @@ const App = {
   diaries: [],        // 觉察日记
   moodDiaries: [],    // 情绪日记
   freeDiaries: [],    // 反向选择
-  // 反向选择随机回顾
-  reverseQueue: [],
-  reverseQueueIndex: 0,
   activeTab: "chat",
   // 引导式觉察状态
   guided: {
@@ -974,17 +971,10 @@ ${historySummary}`;
     const list = document.getElementById("free-diary-list");
     const countEl = document.getElementById("free-diary-count");
     const reverseCount = document.getElementById("reverse-count");
-    const reverseSparkle = document.getElementById("reverse-sparkle");
     if (!list) return;
     const total = this.freeDiaries.length;
     if (countEl) countEl.textContent = `共 ${total} 条`;
     if (reverseCount) reverseCount.innerHTML = `至春已经选择了 <strong>${total}</strong> 次反向`;
-
-    // 随机回顾区域
-    if (reverseSparkle) {
-      reverseSparkle.style.display = total > 0 ? "block" : "none";
-      if (total > 0) this.renderReverseSparkle();
-    }
 
     if (total === 0) {
       list.innerHTML = '<div class="empty">还没有反向选择记录<br>下一次旧程序说跑的时候，站住，然后回来记下。</div>';
@@ -1027,31 +1017,6 @@ ${historySummary}`;
       header.addEventListener("click", () => { card.classList.toggle("expanded"); });
       list.appendChild(card);
     });
-  },
-
-  renderReverseSparkle() {
-    const total = this.freeDiaries.length;
-    if (total === 0) return;
-    // 洗牌
-    if (this.reverseQueue.length === 0 || this.reverseQueueIndex >= this.reverseQueue.length) {
-      this.reverseQueue = this.shuffleArray(this.freeDiaries.map(d => d.id));
-      this.reverseQueueIndex = 0;
-    }
-    const id = this.reverseQueue[this.reverseQueueIndex];
-    this.reverseQueueIndex++;
-    const d = this.freeDiaries.find(r => r.id === id) || this.freeDiaries[0];
-    if (!d) return;
-
-    const dateStr = new Date(d.createdAt).toLocaleDateString("zh-CN");
-    document.getElementById("reverse-sparkle-date").textContent = dateStr;
-    document.getElementById("reverse-sparkle-quote").textContent = d.newChoice;
-    const detail = document.getElementById("reverse-sparkle-detail");
-    detail.innerHTML = `
-      <div class="rs-line"><span>触发：</span>${this.escapeHtml(d.trigger)}</div>
-      <div class="rs-line"><span>旧程序：</span>${this.escapeHtml(d.oldProgram || "—")}</div>
-      <div class="rs-line"><span>结果：</span>${this.escapeHtml(d.result || "—")}</div>
-      <div class="rs-line"><span>情绪：</span>${d.intensityBefore || "-"} → ${d.intensityAfter || "-"}</div>
-    `;
   },
 
   deleteFreeDiary(id) {
@@ -2289,16 +2254,6 @@ ${obsText}${ctInfo}
     return a;
   },
 
-  // 确保洗牌队列就绪
-  ensureReverseQueue() {
-    const total = this.freeDiaries.length;
-    if (total === 0) { this.reverseQueue = []; this.reverseQueueIndex = 0; return; }
-    if (this.reverseQueue.length === 0 || this.reverseQueueIndex >= this.reverseQueue.length) {
-      this.reverseQueue = this.shuffleArray(this.freeDiaries.map(d => d.id));
-      this.reverseQueueIndex = 0;
-    }
-  },
-
   ensureSparkleQueue() {
     const happyDiaries = this.getHappyDiaries();
     if (happyDiaries.length === 0) {
@@ -2786,9 +2741,6 @@ ${obsText}${ctInfo}
 
     const exportFreeBtn = document.getElementById("export-free-btn");
     if (exportFreeBtn) exportFreeBtn.addEventListener("click", () => this.exportAllFreeDiaries());
-
-    const reverseSparkleNextBtn = document.getElementById("reverse-sparkle-next");
-    if (reverseSparkleNextBtn) reverseSparkleNextBtn.addEventListener("click", () => { this.ensureReverseQueue(); this.renderFreeDiaries(); });
 
     // 情绪强度滑动条
     const intensityBefore = document.getElementById("reverse-intensity-before");

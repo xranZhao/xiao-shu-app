@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=31">
   <script>
     (function () {
       function setVh() {
@@ -273,7 +273,7 @@
 
           <!-- Step 1: 触发 -->
           <div class="reverse-step-content" id="reverse-step-1">
-            <input type="text" id="reverse-trigger" class="reverse-input" placeholder="什么人说了什么话？做了什么事？">
+            <textarea id="reverse-trigger" class="reverse-input" placeholder="什么人说了什么话？做了什么事？" rows="4"></textarea>
             <div class="intensity-inline">
               <label>触发时的情绪强度</label>
               <div class="intensity-slider-row">
@@ -285,17 +285,17 @@
 
           <!-- Step 2: 旧程序 -->
           <div class="reverse-step-content" id="reverse-step-2" style="display:none;">
-            <input type="text" id="reverse-old" class="reverse-input" placeholder="那个瞬间，旧程序在你脑子里说了什么？">
+            <textarea id="reverse-old" class="reverse-input" placeholder="那个瞬间，旧程序在你脑子里说了什么？" rows="4"></textarea>
           </div>
 
           <!-- Step 3: 反向选择 -->
           <div class="reverse-step-content" id="reverse-step-3" style="display:none;">
-            <input type="text" id="reverse-new" class="reverse-input" placeholder="你做了什么不一样的事？">
+            <textarea id="reverse-new" class="reverse-input" placeholder="你做了什么不一样的事？" rows="4"></textarea>
           </div>
 
           <!-- Step 4: 结果 -->
           <div class="reverse-step-content" id="reverse-step-4" style="display:none;">
-            <input type="text" id="reverse-result" class="reverse-input" placeholder="对方什么反应？你什么感受？和以前哪里不同？">
+            <textarea id="reverse-result" class="reverse-input" placeholder="对方什么反应？你什么感受？和以前哪里不同？" rows="4"></textarea>
             <div class="intensity-inline">
               <label>现在的情绪强度</label>
               <div class="intensity-slider-row">
@@ -322,16 +322,6 @@
             <button id="save-reverse-btn" class="btn-primary">💾 保存这条记录</button>
             <button id="reset-reverse-btn" class="btn-text">重新来过</button>
           </div>
-        </div>
-
-        <!-- 随机回顾 -->
-        <div id="reverse-sparkle" class="reverse-sparkle" style="display:none;">
-          <div class="reverse-sparkle-card" id="reverse-sparkle-card">
-            <div class="reverse-sparkle-date" id="reverse-sparkle-date"></div>
-            <div class="reverse-sparkle-quote" id="reverse-sparkle-quote"></div>
-            <div class="reverse-sparkle-detail" id="reverse-sparkle-detail"></div>
-          </div>
-          <button id="reverse-sparkle-next" class="sparkle-btn-primary">换一张</button>
         </div>
 
         <!-- 反向选择列表 -->
