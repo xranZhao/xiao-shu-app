@@ -974,7 +974,7 @@ ${historySummary}`;
     if (!list) return;
     const total = this.freeDiaries.length;
     if (countEl) countEl.textContent = `共 ${total} 条`;
-    if (reverseCount) reverseCount.innerHTML = `至春已经选择了 <strong>${total}</strong> 次反向`;
+    if (reverseCount) reverseCount.innerHTML = `你已经选择了 <strong>${total}</strong> 次反向`;
 
     if (total === 0) {
       list.innerHTML = '<div class="empty">还没有反向选择记录<br>下一次旧程序说跑的时候，站住，然后回来记下。</div>';
