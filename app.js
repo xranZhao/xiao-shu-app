@@ -265,10 +265,14 @@ const App = {
 
   renderGuidedStep() {
     const step = this.guided.currentStep;
-    document.getElementById("step-num").textContent = step;
-    document.getElementById("step-name").textContent = this.getGuidedStepName(step);
-    document.getElementById("step-question").textContent = this.getGuidedStepQuestion(step);
-    document.getElementById("step-input").value = this.guided.steps[Object.keys(this.guided.steps)[step - 1]] || "";
+    const stepNum = document.getElementById("step-num");
+    const stepName = document.getElementById("step-name");
+    const stepQ = document.getElementById("step-question");
+    const stepInput = document.getElementById("step-input");
+    if (stepNum) stepNum.textContent = step;
+    if (stepName) stepName.textContent = this.getGuidedStepName(step);
+    if (stepQ) stepQ.textContent = this.getGuidedStepQuestion(step);
+    if (stepInput) stepInput.value = this.guided.steps[Object.keys(this.guided.steps)[step - 1]] || "";
 
     // 颜色区仅在第 2 步显示
     const moodWheel = document.getElementById("guided-mood-wheel");
@@ -290,8 +294,10 @@ const App = {
       categoryTag.className = `category-tag ${this.guided.steps.category || "aware"}`;
     }
 
-    document.getElementById("step-prev-btn").style.display = step === 1 ? "none" : "";
-    document.getElementById("step-next-btn").textContent = step === 4 ? "✅ 完成" : "下一步 →";
+    const prevBtn = document.getElementById("step-prev-btn");
+    const nextBtn = document.getElementById("step-next-btn");
+    if (prevBtn) prevBtn.style.display = step === 1 ? "none" : "";
+    if (nextBtn) nextBtn.textContent = step === 4 ? "✅ 完成" : "下一步 →";
     this.saveGuidedDraft();
   },
 
@@ -350,14 +356,16 @@ const App = {
     if (this.guided.currentStep <= 1) return;
     // 保存当前步骤内容
     const key = Object.keys(this.guided.steps)[this.guided.currentStep - 1];
-    this.guided.steps[key] = document.getElementById("step-input").value;
+    const si = document.getElementById("step-input");
+    if (si) this.guided.steps[key] = si.value;
     this.guided.currentStep--;
     this.renderGuidedStep();
   },
 
   guidedNext() {
     const key = Object.keys(this.guided.steps)[this.guided.currentStep - 1];
-    const value = document.getElementById("step-input").value.trim();
+    const si2 = document.getElementById("step-input");
+    const value = si2 ? si2.value.trim() : "";
     this.guided.steps[key] = value;
 
     // 第 2 步保存颜色区、情绪词并自动分类
@@ -387,9 +395,10 @@ const App = {
     const steps = this.guided.steps;
 
     // 显示汇总
-    document.getElementById("guided-step-card").style.display = "none";
+    const gsc2 = document.getElementById("guided-step-card");
+    if (gsc2) gsc2.style.display = "none";
     const summary = document.getElementById("guided-summary");
-    summary.style.display = "flex";
+    if (summary) summary.style.display = "flex";
 
     // 构建汇总内容
     const defenseLabel = steps.category === "happy" ? "感受方式" : "防御方式";
@@ -403,7 +412,8 @@ const App = {
     if (emotions.length > 0) {
       html += `<span class="s-label">情绪词</span><span class="s-text">${this.escapeHtml(emotions.join("、"))}</span>`;
     }
-    document.getElementById("summary-body").innerHTML = html;
+    const summaryBody = document.getElementById("summary-body");
+    if (summaryBody) summaryBody.innerHTML = html;
 
     // 汇总头部显示分类标签
     const summaryHeader = document.querySelector(".summary-header");
@@ -414,13 +424,13 @@ const App = {
     // 生成标题
     const localTitle = this.generateDiaryTitle(steps);
     const titleInput = document.getElementById("summary-title");
-    titleInput.value = localTitle;
+    if (titleInput) titleInput.value = localTitle;
 
     if (!CONFIG.API_KEY) {
       this.showToast("未设置 API Key，已使用本地规则生成标题");
     } else {
       this.generateAITitle(steps).then((aiTitle) => {
-        if (aiTitle) titleInput.value = aiTitle;
+        if (aiTitle && titleInput) titleInput.value = aiTitle;
       }).catch((err) => {
         console.error("AI 标题生成失败", err);
       });
@@ -429,23 +439,28 @@ const App = {
     // 本地检测强迫性重复
     const match = this.findSimilarPattern(steps);
     if (match) {
-      document.getElementById("pattern-alert").style.display = "block";
-      document.getElementById("pattern-alert").innerHTML =
-        `🌱 小树注意到：你在 <strong>${match.date}</strong> 的日记里也有过类似的感觉——"${this.escapeHtml(match.snippet)}"。这可能是你的一个<strong>强迫性重复模式</strong>。<br><br><a onclick="App.viewDiary(${match.id})">📖 回顾那篇日记：《${this.escapeHtml(match.title)}》</a>`;
+      const pa = document.getElementById("pattern-alert");
+      if (pa) {
+        pa.style.display = "block";
+        pa.innerHTML =
+          `🌱 小树注意到：你在 <strong>${match.date}</strong> 的日记里也有过类似的感觉——"${this.escapeHtml(match.snippet)}"。这可能是你的一个<strong>强迫性重复模式</strong>。<br><br><a onclick="App.viewDiary(${match.id})">📖 回顾那篇日记：《${this.escapeHtml(match.title)}》</a>`;
+      }
     }
 
     // 检查 API Key
     if (!CONFIG.API_KEY) {
-      document.getElementById("summary-feedback-label").textContent = "🌱 缺少 API Key";
-      document.getElementById("summary-feedback").innerHTML = "请先到「⚙️ 设置」填入你的 API Key，然后回来点「重新来过」重新提交。";
+      const sfl = document.getElementById("summary-feedback-label");
+      const sf = document.getElementById("summary-feedback");
+      if (sfl) sfl.textContent = "🌱 缺少 API Key";
+      if (sf) sf.innerHTML = "请先到「⚙️ 设置」填入你的 API Key，然后回来点「重新来过」重新提交。";
       return;
     }
 
     // 显示进度条
     const fbLabel = document.getElementById("summary-feedback-label");
     const fbBody = document.getElementById("summary-feedback");
-    fbLabel.textContent = "🌱 小树正在感受你的日记...";
-    fbBody.innerHTML = `
+    if (fbLabel) fbLabel.textContent = "🌱 小树正在感受你的日记...";
+    if (fbBody) fbBody.innerHTML = `
       <div class="feedback-progress">
         <div class="fp-bar"><div class="fp-fill" id="fp-fill"></div></div>
         <div class="fp-text" id="fp-text">连接中...</div>
@@ -458,10 +473,12 @@ const App = {
       if (progress < 90) {
         progress += Math.random() * 15 + 5; // 5-20% per tick
         if (progress > 90) progress = 90;
-        document.getElementById("fp-fill").style.width = progress + "%";
+        const fpFill = document.getElementById("fp-fill");
+        const fpText = document.getElementById("fp-text");
+        if (fpFill) fpFill.style.width = progress + "%";
         const messages = ["连接中...", "小树在读你的情绪事件...", "小树在体会你的感受...", "小树在看你的防御方式...", "小树在连接你的过去..."];
         const idx = Math.min(Math.floor(progress / 20), messages.length - 1);
-        document.getElementById("fp-text").textContent = messages[idx];
+        if (fpText) fpText.textContent = messages[idx];
         progressTimer = setTimeout(advanceProgress, 600 + Math.random() * 800);
       }
     };
@@ -471,17 +488,19 @@ const App = {
     try {
       const feedback = await this.callGuidedFeedback(steps);
       clearTimeout(progressTimer);
-      document.getElementById("fp-fill").style.width = "100%";
-      document.getElementById("fp-text").textContent = "完成 ✓";
+      const fpFill2 = document.getElementById("fp-fill");
+      const fpText2 = document.getElementById("fp-text");
+      if (fpFill2) fpFill2.style.width = "100%";
+      if (fpText2) fpText2.textContent = "完成 ✓";
       setTimeout(() => {
-        fbLabel.textContent = "🌱 小树回应";
-        fbBody.innerHTML = this.markdownToHtml(feedback);
+        if (fbLabel) fbLabel.textContent = "🌱 小树回应";
+        if (fbBody) fbBody.innerHTML = this.markdownToHtml(feedback);
       }, 400);
     } catch (err) {
       clearTimeout(progressTimer);
       console.error(err);
-      fbLabel.textContent = "🌱 小树回应（获取失败）";
-      fbBody.innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}<br><br>请检查：<br>1. ⚙️ 设置页 API Key 是否正确<br>2. 网络连接是否正常<br>3. API 额度是否用完<br><br>修复后点「重新来过」再试一次。</div>`;
+      if (fbLabel) fbLabel.textContent = "🌱 小树回应（获取失败）";
+      if (fbBody) fbBody.innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}<br><br>请检查：<br>1. ⚙️ 设置页 API Key 是否正确<br>2. 网络连接是否正常<br>3. API 额度是否用完<br><br>修复后点「重新来过」再试一次。</div>`;
     }
   },
 
@@ -673,7 +692,8 @@ ${historySummary}`;
 
   async saveGuidedDiary() {
     const steps = this.guided.steps;
-    const title = document.getElementById("summary-title").value.trim();
+    const titleInput2 = document.getElementById("summary-title");
+    const title = titleInput2 ? titleInput2.value.trim() : "";
     // 从 innerHTML 里获取真实反馈（处理 markdown 渲染后的内容）
     const fbEl = document.getElementById("summary-feedback");
     const feedback = fbEl ? fbEl.innerText || fbEl.textContent : "";
@@ -717,8 +737,10 @@ ${historySummary}`;
     this.clearGuidedDraft();
 
     // 重新显示引导卡片，隐藏汇总
-    document.getElementById("guided-step-card").style.display = "";
-    document.getElementById("guided-summary").style.display = "none";
+    const gsc3 = document.getElementById("guided-step-card");
+    const gs2 = document.getElementById("guided-summary");
+    if (gsc3) gsc3.style.display = "";
+    if (gs2) gs2.style.display = "none";
     this.renderGuidedStep();
     this.renderDiaries();
     this.showToast("觉察日记已保存 ✨");
@@ -820,23 +842,27 @@ ${historySummary}`;
 
   renderReverseStep() {
     const step = this.reverseStep.current;
-    document.getElementById("reverse-step-num").textContent = step;
-    const names = ["触发", "旧程序", "反向选择", "结果"];
-    const hints = [
+    const rsn = document.getElementById("reverse-step-num");
+    const rsn2 = document.getElementById("reverse-step-name");
+    const rsh = document.getElementById("reverse-step-hint");
+    if (rsn) rsn.textContent = step;
+    if (rsn2) rsn2.textContent = ["触发", "旧程序", "反向选择", "结果"][step - 1];
+    if (rsh) rsh.textContent = [
       "发生了什么？客观描述，一句话。",
       "那个瞬间，旧程序在你脑子里说了什么？",
       "你做了什么不一样的事？",
       "对方什么反应？你什么感受？和以前哪里不同？",
-    ];
-    document.getElementById("reverse-step-name").textContent = names[step - 1];
-    document.getElementById("reverse-step-hint").textContent = hints[step - 1];
+    ][step - 1];
 
     for (let i = 1; i <= 4; i++) {
-      document.getElementById(`reverse-step-${i}`).style.display = i === step ? "block" : "none";
+      const el = document.getElementById(`reverse-step-${i}`);
+      if (el) el.style.display = i === step ? "block" : "none";
     }
 
-    document.getElementById("reverse-prev-btn").style.display = step === 1 ? "none" : "";
-    document.getElementById("reverse-next-btn").textContent = step === 4 ? "✅ 完成" : "下一步 →";
+    const rpb = document.getElementById("reverse-prev-btn");
+    const rnb = document.getElementById("reverse-next-btn");
+    if (rpb) rpb.style.display = step === 1 ? "none" : "";
+    if (rnb) rnb.textContent = step === 4 ? "✅ 完成" : "下一步 →";
   },
 
   reversePrev() {
@@ -848,12 +874,16 @@ ${historySummary}`;
   reverseNext() {
     const step = this.reverseStep.current;
     if (step === 1) {
-      this.reverseStep.steps.trigger = document.getElementById("reverse-trigger").value.trim();
-      this.reverseStep.steps.triggerIntensity = parseInt(document.getElementById("reverse-intensity-before").value);
+      const rt = document.getElementById("reverse-trigger");
+      const rib = document.getElementById("reverse-intensity-before");
+      if (rt) this.reverseStep.steps.trigger = rt.value.trim();
+      if (rib) this.reverseStep.steps.triggerIntensity = parseInt(rib.value);
     } else if (step === 2) {
-      this.reverseStep.steps.oldProgram = document.getElementById("reverse-old").value.trim();
+      const ro = document.getElementById("reverse-old");
+      if (ro) this.reverseStep.steps.oldProgram = ro.value.trim();
     } else if (step === 3) {
-      this.reverseStep.steps.newChoice = document.getElementById("reverse-new").value.trim();
+      const rn = document.getElementById("reverse-new");
+      if (rn) this.reverseStep.steps.newChoice = rn.value.trim();
     }
 
     if (step < 4) {
@@ -861,45 +891,58 @@ ${historySummary}`;
       this.renderReverseStep();
     } else {
       // 第4步保存数据
-      this.reverseStep.steps.result = document.getElementById("reverse-result").value.trim();
-      this.reverseStep.steps.resultIntensity = parseInt(document.getElementById("reverse-intensity-after").value);
+      const rr = document.getElementById("reverse-result");
+      const ria = document.getElementById("reverse-intensity-after");
+      if (rr) this.reverseStep.steps.result = rr.value.trim();
+      if (ria) this.reverseStep.steps.resultIntensity = parseInt(ria.value);
       this.showReverseSummary();
     }
   },
 
   async showReverseSummary() {
     const s = this.reverseStep.steps;
-    document.getElementById("reverse-step-card").style.display = "none";
-    document.getElementById("reverse-summary").style.display = "flex";
+    const rsc = document.getElementById("reverse-step-card");
+    const rs = document.getElementById("reverse-summary");
+    if (rsc) rsc.style.display = "none";
+    if (rs) rs.style.display = "flex";
 
     let html = "";
     html += `<span class="s-label">触发</span><span class="s-text">${this.escapeHtml(s.trigger)} · 情绪 ${s.triggerIntensity}/10</span>`;
     html += `<span class="s-label">旧程序</span><span class="s-text">${this.escapeHtml(s.oldProgram || "未记录")}</span>`;
     html += `<span class="s-label">反向选择</span><span class="s-text">${this.escapeHtml(s.newChoice)}</span>`;
     html += `<span class="s-label">结果</span><span class="s-text">${this.escapeHtml(s.result || "未记录")} · 现在情绪 ${s.resultIntensity}/10</span>`;
-    document.getElementById("reverse-summary-body").innerHTML = html;
+    const rsb = document.getElementById("reverse-summary-body");
+    if (rsb) rsb.innerHTML = html;
 
     if (!CONFIG.API_KEY) {
-      document.getElementById("reverse-feedback-label").textContent = "🌱 缺少 API Key";
-      document.getElementById("reverse-feedback").innerHTML = "请先到「⚙️ 设置」填入 API Key。";
+      const rfl = document.getElementById("reverse-feedback-label");
+      const rf = document.getElementById("reverse-feedback");
+      if (rfl) rfl.textContent = "🌱 缺少 API Key";
+      if (rf) rf.innerHTML = "请先到「⚙️ 设置」填入 API Key。";
       return;
     }
 
-    document.getElementById("reverse-feedback-label").textContent = "🌱 小树正在见证...";
-    document.getElementById("reverse-feedback").innerHTML = "";
+    const rfl2 = document.getElementById("reverse-feedback-label");
+    const rf2 = document.getElementById("reverse-feedback");
+    if (rfl2) rfl2.textContent = "🌱 小树正在见证...";
+    if (rf2) rf2.innerHTML = "";
 
     try {
       const feedback = await this.callReverseFeedback({
         trigger: s.trigger, oldProgram: s.oldProgram, newChoice: s.newChoice,
         result: s.result, intensityBefore: s.triggerIntensity, intensityAfter: s.resultIntensity,
       });
-      document.getElementById("reverse-feedback-label").textContent = "🌱 小树见证";
-      document.getElementById("reverse-feedback").innerHTML = this.markdownToHtml(feedback);
+      const rfl3 = document.getElementById("reverse-feedback-label");
+      const rf3 = document.getElementById("reverse-feedback");
+      if (rfl3) rfl3.textContent = "🌱 小树见证";
+      if (rf3) rf3.innerHTML = this.markdownToHtml(feedback);
       this.reverseStep._feedback = feedback;
     } catch (err) {
       console.error(err);
-      document.getElementById("reverse-feedback-label").textContent = "🌱 小树见证（获取失败）";
-      document.getElementById("reverse-feedback").innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}</div>`;
+      const rfl4 = document.getElementById("reverse-feedback-label");
+      const rf4 = document.getElementById("reverse-feedback");
+      if (rfl4) rfl4.textContent = "🌱 小树见证（获取失败）";
+      if (rf4) rf4.innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}</div>`;
     }
   },
 
@@ -924,16 +967,26 @@ ${historySummary}`;
     // 重置
     this.reverseStep = { current: 1, total: 4, steps: { trigger: "", triggerIntensity: 5, oldProgram: "", newChoice: "", result: "", resultIntensity: 5 } };
     this.reverseStep._feedback = "";
-    document.getElementById("reverse-step-card").style.display = "";
-    document.getElementById("reverse-summary").style.display = "none";
-    document.getElementById("reverse-trigger").value = "";
-    document.getElementById("reverse-old").value = "";
-    document.getElementById("reverse-new").value = "";
-    document.getElementById("reverse-result").value = "";
-    document.getElementById("reverse-intensity-before").value = "5";
-    document.getElementById("reverse-intensity-after").value = "5";
-    document.getElementById("intensity-before-val").textContent = "5";
-    document.getElementById("intensity-after-val").textContent = "5";
+    const rsc2 = document.getElementById("reverse-step-card");
+    const rs2 = document.getElementById("reverse-summary");
+    if (rsc2) rsc2.style.display = "";
+    if (rs2) rs2.style.display = "none";
+    const rt = document.getElementById("reverse-trigger");
+    const ro = document.getElementById("reverse-old");
+    const rn = document.getElementById("reverse-new");
+    const rr = document.getElementById("reverse-result");
+    const rib = document.getElementById("reverse-intensity-before");
+    const ria = document.getElementById("reverse-intensity-after");
+    const ibv = document.getElementById("intensity-before-val");
+    const iav = document.getElementById("intensity-after-val");
+    if (rt) rt.value = "";
+    if (ro) ro.value = "";
+    if (rn) rn.value = "";
+    if (rr) rr.value = "";
+    if (rib) rib.value = "5";
+    if (ria) ria.value = "5";
+    if (ibv) ibv.textContent = "5";
+    if (iav) iav.textContent = "5";
     this.renderReverseStep();
     this.renderFreeDiaries();
     this.showToast("反向选择已保存 🔄");
@@ -1043,10 +1096,12 @@ ${historySummary}`;
     if (!d) return;
 
     const dateStr = new Date(d.createdAt).toLocaleDateString("zh-CN");
-    document.getElementById("reverse-sparkle-date").textContent = dateStr;
-    document.getElementById("reverse-sparkle-quote").textContent = d.newChoice;
+    const rsd = document.getElementById("reverse-sparkle-date");
+    const rsq = document.getElementById("reverse-sparkle-quote");
     const detail = document.getElementById("reverse-sparkle-detail");
-    detail.innerHTML = `
+    if (rsd) rsd.textContent = dateStr;
+    if (rsq) rsq.textContent = d.newChoice;
+    if (detail) detail.innerHTML = `
       <div class="rs-line"><span>触发：</span>${this.escapeHtml(d.trigger)}</div>
       <div class="rs-line"><span>旧程序：</span>${this.escapeHtml(d.oldProgram || "—")}</div>
       <div class="rs-line"><span>结果：</span>${this.escapeHtml(d.result || "—")}</div>
@@ -1119,7 +1174,8 @@ ${historySummary}`;
     const myBtn = document.querySelector('.diary-mode-btn[data-mode="my"]');
     if (myBtn) myBtn.classList.add("active");
     document.querySelectorAll(".diary-mode-content").forEach(c => c.classList.remove("active"));
-    document.getElementById("my-diary").classList.add("active");
+    const md = document.getElementById("my-diary");
+    if (md) md.classList.add("active");
     this.resetMoodStep();
     if (zone) this.toggleMyDiaryZone(zone);
   },
@@ -1305,7 +1361,8 @@ ${historySummary}`;
     this.myDiaryZones = [];
     this.myDiaryEmotions = [];
     document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(el => el.classList.remove("selected"));
-    if (document.getElementById("my-diary-emotion-tags")) document.getElementById("my-diary-emotion-tags").innerHTML = "";
+    const mdEt = document.getElementById("my-diary-emotion-tags");
+    if (mdEt) mdEt.innerHTML = "";
 
     this.renderMoodDiaries();
     this.showToast("日日记录已保存，进入落地呼吸 🌙");
@@ -1321,10 +1378,10 @@ ${historySummary}`;
     const calmText = document.getElementById("calm-text");
     const calmStep = document.getElementById("calm-step");
 
-    overlay.style.display = "flex";
-    calmSection.style.display = "block";
-    audioSection.style.display = "none";
-    audioFallback.style.display = "none";
+    if (overlay) overlay.style.display = "flex";
+    if (calmSection) calmSection.style.display = "block";
+    if (audioSection) audioSection.style.display = "none";
+    if (audioFallback) audioFallback.style.display = "none";
 
     // 提前开始加载音频
     const audio = document.getElementById("hypnosis-audio");
@@ -1353,8 +1410,8 @@ ${historySummary}`;
 
       if (seconds <= 0) {
         clearInterval(timer);
-        calmSection.style.display = "none";
-        audioSection.style.display = "block";
+        if (calmSection) calmSection.style.display = "none";
+        if (audioSection) audioSection.style.display = "block";
         this.playHypnosisAudio();
       }
     }, 1000);
@@ -1364,7 +1421,7 @@ ${historySummary}`;
 
   closeRelaxOverlay() {
     const overlay = document.getElementById("relax-overlay");
-    overlay.style.display = "none";
+    if (overlay) overlay.style.display = "none";
     this.pauseHypnosisAudio();
     if (this._relaxTimer) {
       clearInterval(this._relaxTimer);
@@ -1800,15 +1857,18 @@ ${historySummary}`;
   },
 
   saveSettings() {
-    const apiKey = document.getElementById("setting-api-key").value.trim();
-    let model = document.getElementById("setting-model").value.trim();
-    const baseUrl = document.getElementById("setting-base-url").value.trim();
+    const apiKeyInput = document.getElementById("setting-api-key");
+    const modelInput = document.getElementById("setting-model");
+    const baseUrlInput = document.getElementById("setting-base-url");
+    const apiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
+    let model = modelInput ? modelInput.value.trim() : "";
+    const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : "";
 
     // 防手机自动填充：检测模型框是否被填入了 API Key
     if (model.startsWith("sk-") || model.length > 40) {
       console.warn("检测到模型框被异常填充，已自动纠正");
       model = "deepseek-v4-flash"; // deepseek-chat 已废弃，等价于 v4-flash 非思考模式
-      document.getElementById("setting-model").value = model;
+      if (modelInput) modelInput.value = model;
     }
 
     // 防手机自动填充：检测 API 地址框是否被异常填充
@@ -1816,7 +1876,7 @@ ${historySummary}`;
     if (baseUrl.startsWith("sk-") || baseUrl.length > 80) {
       console.warn("检测到 API 地址框被异常填充，已自动纠正");
       cleanBaseUrl = "https://api.deepseek.com/v1/chat/completions";
-      document.getElementById("setting-base-url").value = cleanBaseUrl;
+      if (baseUrlInput) baseUrlInput.value = cleanBaseUrl;
     }
 
     const userConfig = { API_KEY: apiKey, MODEL: model, BASE_URL: cleanBaseUrl };
@@ -1934,11 +1994,16 @@ ${historySummary}`;
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) { overlay.remove(); }
     });
-    document.getElementById("person-form-cancel").addEventListener("click", () => overlay.remove());
-    document.getElementById("person-form-save").addEventListener("click", () => {
-      const name = document.getElementById("person-form-name").value.trim();
-      const relation = document.getElementById("person-form-relation").value;
-      const impression = document.getElementById("person-form-impression").value.trim();
+    const pfc = document.getElementById("person-form-cancel");
+    const pfs = document.getElementById("person-form-save");
+    if (pfc) pfc.addEventListener("click", () => overlay.remove());
+    if (pfs) pfs.addEventListener("click", () => {
+      const nameInput = document.getElementById("person-form-name");
+      const relationInput = document.getElementById("person-form-relation");
+      const impressionInput = document.getElementById("person-form-impression");
+      const name = nameInput ? nameInput.value.trim() : "";
+      const relation = relationInput ? relationInput.value : "其他";
+      const impression = impressionInput ? impressionInput.value.trim() : "";
       if (!name) { this.showToast("请输入角色名称"); return; }
       const person = {
         id: Date.now(),
@@ -1959,22 +2024,29 @@ ${historySummary}`;
 
   openPerson(id) {
     this.currentPersonId = id;
-    document.getElementById("people-list-view").style.display = "none";
-    document.getElementById("person-detail-view").style.display = "";
+    const plv = document.getElementById("people-list-view");
+    const pdv = document.getElementById("person-detail-view");
+    if (plv) plv.style.display = "none";
+    if (pdv) pdv.style.display = "";
     this.renderPersonDetail();
 
     // 过度分析检测
     if (this.people.length >= 4) {
-      document.getElementById("over-analyze-warning").style.display = "block";
-      document.getElementById("over-analyze-warning").innerHTML =
-        "🌱 小树轻轻问：你在观察这么多人的时候，有没有可能想通过分析别人，来转移对自我的觉察？也许可以去觉察日记那边写一篇。分析功能依然能用。";
+      const oaw = document.getElementById("over-analyze-warning");
+      if (oaw) {
+        oaw.style.display = "block";
+        oaw.innerHTML =
+          "🌱 小树轻轻问：你在观察这么多人的时候，有没有可能想通过分析别人，来转移对自我的觉察？也许可以去觉察日记那边写一篇。分析功能依然能用。";
+      }
     }
   },
 
   closePerson() {
     this.currentPersonId = null;
-    document.getElementById("people-list-view").style.display = "";
-    document.getElementById("person-detail-view").style.display = "none";
+    const plv = document.getElementById("people-list-view");
+    const pdv = document.getElementById("person-detail-view");
+    if (plv) plv.style.display = "";
+    if (pdv) pdv.style.display = "none";
   },
 
   getCurrentPerson() {
@@ -1987,7 +2059,8 @@ ${historySummary}`;
 
     // 角色信息
     const title = this.getPersonTitle(p);
-    document.getElementById("person-info-card").innerHTML = `
+    const pic = document.getElementById("person-info-card");
+    if (pic) pic.innerHTML = `
       <div class="person-info-name">${this.escapeHtml(p.name)}</div>
       <div class="person-info-relation">${this.escapeHtml(p.relation)} · ${new Date(p.createdAt).toLocaleDateString("zh-CN")}</div>
       ${title ? `<div class="person-info-title">${this.escapeHtml(title)}</div>` : ""}
@@ -2001,7 +2074,8 @@ ${historySummary}`;
       </div>
       <button class="btn-text danger" style="margin-top:8px;" id="delete-person-btn">删除此角色</button>
     `;
-    document.getElementById("delete-person-btn").addEventListener("click", () => {
+    const dpb = document.getElementById("delete-person-btn");
+    if (dpb) dpb.addEventListener("click", () => {
       if (!confirm(`确定删除「${p.name}」及其所有记录吗？`)) return;
       this.people = this.people.filter(pp => pp.id !== p.id);
       this.saveData();
@@ -2011,18 +2085,24 @@ ${historySummary}`;
     });
 
     // 观察记录
-    document.getElementById("obs-count").textContent = `(${p.observations.length} 条)`;
+    const ocEl = document.getElementById("obs-count");
+    if (ocEl) ocEl.textContent = `(${p.observations.length} 条)`;
     this.renderObsList();
 
     // 上次分析
     if (p.analyses.length > 0) {
-      document.getElementById("person-analysis-card").style.display = "";
+      const pac = document.getElementById("person-analysis-card");
+      if (pac) pac.style.display = "";
       const last = p.analyses[p.analyses.length - 1];
-      document.getElementById("analysis-body").innerHTML = this.markdownToHtml(last.content);
-      document.getElementById("analysis-honesty").innerHTML = `<div class="honesty-title">⚠️ 诚实边界</div>` + this.HONESTY_BOUNDARY.map(item => `<p class="honesty-item">• ${this.escapeHtml(item)}</p>`).join("");
-      document.getElementById("analysis-date").textContent = "分析时间：" + new Date(last.createdAt).toLocaleString("zh-CN");
+      const ab = document.getElementById("analysis-body");
+      const ah = document.getElementById("analysis-honesty");
+      const ad = document.getElementById("analysis-date");
+      if (ab) ab.innerHTML = this.markdownToHtml(last.content);
+      if (ah) ah.innerHTML = `<div class="honesty-title">⚠️ 诚实边界</div>` + this.HONESTY_BOUNDARY.map(item => `<p class="honesty-item">• ${this.escapeHtml(item)}</p>`).join("");
+      if (ad) ad.textContent = "分析时间：" + new Date(last.createdAt).toLocaleString("zh-CN");
     } else {
-      document.getElementById("person-analysis-card").style.display = "none";
+      const pac = document.getElementById("person-analysis-card");
+      if (pac) pac.style.display = "none";
     }
   },
 
@@ -2083,7 +2163,8 @@ ${historySummary}`;
         p.observations = p.observations.filter(o => o.id !== oid);
         this.saveData();
         this.renderObsList();
-        document.getElementById("obs-count").textContent = `(${p.observations.length} 条)`;
+        const ocEl2 = document.getElementById("obs-count");
+        if (ocEl2) ocEl2.textContent = `(${p.observations.length} 条)`;
       });
     });
   },
@@ -2104,8 +2185,11 @@ ${historySummary}`;
     if (p.observations.length === 0) { this.showToast("请先添加观察记录"); return; }
     if (!CONFIG.API_KEY) { this.showToast("请先在设置页填入 API Key"); return; }
 
-    document.getElementById("analyze-person-btn").disabled = true;
-    document.getElementById("analyze-person-btn").textContent = "分析中...";
+    const analyzeBtn = document.getElementById("analyze-person-btn");
+    if (analyzeBtn) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = "分析中...";
+    }
 
     // 构建观察记录文本
     let obsText = p.observations.map((o, i) => {
@@ -2213,8 +2297,11 @@ ${obsText}${ctInfo}
       console.error(err);
       this.showToast("分析失败：" + err.message);
     } finally {
-      document.getElementById("analyze-person-btn").disabled = false;
-      document.getElementById("analyze-person-btn").textContent = "🌱 小树分析此角色";
+      const analyzeBtn2 = document.getElementById("analyze-person-btn");
+      if (analyzeBtn2) {
+        analyzeBtn2.disabled = false;
+        analyzeBtn2.textContent = "🌱 小树分析此角色";
+      }
     }
   },
 
@@ -2224,11 +2311,13 @@ ${obsText}${ctInfo}
     document.querySelectorAll(".tab-content").forEach((el) => {
       el.classList.remove("active");
     });
-    document.getElementById(`tab-${tab}`).classList.add("active");
+    const tabEl = document.getElementById(`tab-${tab}`);
+    if (tabEl) tabEl.classList.add("active");
     document.querySelectorAll(".tab-btn").forEach((el) => {
       el.classList.remove("active");
     });
-    document.getElementById(`nav-${tab}`).classList.add("active");
+    const navEl = document.getElementById(`nav-${tab}`);
+    if (navEl) navEl.classList.add("active");
 
     // 切换到日记页时加载草稿并刷新列表
     if (tab === "diary") {
@@ -2691,16 +2780,19 @@ ${obsText}${ctInfo}
         e.target.classList.add("active");
         document.querySelectorAll(".diary-mode-content").forEach(c => c.classList.remove("active"));
         if (mode === "guided") {
-          document.getElementById("guided-diary").classList.add("active");
+          const gd = document.getElementById("guided-diary");
+          if (gd) gd.classList.add("active");
           this.loadGuidedDraft();
           this.renderGuidedStep();
           this.renderDiaries();
         } else if (mode === "my") {
-          document.getElementById("my-diary").classList.add("active");
+          const md = document.getElementById("my-diary");
+          if (md) md.classList.add("active");
           this.resetMoodStep();
           this.renderMoodDiaries();
         } else if (mode === "free") {
-          document.getElementById("free-diary").classList.add("active");
+          const fd = document.getElementById("free-diary");
+          if (fd) fd.classList.add("active");
           this.renderReverseStep();
           this.renderFreeDiaries();
         }
@@ -2708,23 +2800,30 @@ ${obsText}${ctInfo}
     });
 
     // 引导式觉察步骤导航
-    document.getElementById("step-prev-btn").addEventListener("click", () => this.guidedPrev());
-    document.getElementById("step-next-btn").addEventListener("click", () => this.guidedNext());
+    const stepPrevBtn = document.getElementById("step-prev-btn");
+    const stepNextBtn = document.getElementById("step-next-btn");
+    if (stepPrevBtn) stepPrevBtn.addEventListener("click", () => this.guidedPrev());
+    if (stepNextBtn) stepNextBtn.addEventListener("click", () => this.guidedNext());
 
     // 保存引导日记
-    document.getElementById("save-guided-btn").addEventListener("click", () => {
+    const saveGuidedBtn = document.getElementById("save-guided-btn");
+    if (saveGuidedBtn) saveGuidedBtn.addEventListener("click", () => {
       this.saveGuidedDiary().catch((err) => {
         console.error("保存觉察日记失败", err);
         this.showToast("保存失败，请检查网络或 API Key");
       });
     });
     // 重新来过
-    document.getElementById("reset-guided-btn").addEventListener("click", () => {
+    const resetGuidedBtn = document.getElementById("reset-guided-btn");
+    if (resetGuidedBtn) resetGuidedBtn.addEventListener("click", () => {
       this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null } };
       this.clearGuidedDraft();
-      document.getElementById("guided-step-card").style.display = "";
-      document.getElementById("guided-summary").style.display = "none";
-      document.getElementById("step-input").value = "";
+      const gsc = document.getElementById("guided-step-card");
+      const gs = document.getElementById("guided-summary");
+      const si = document.getElementById("step-input");
+      if (gsc) gsc.style.display = "";
+      if (gs) gs.style.display = "none";
+      if (si) si.value = "";
       this.renderGuidedStep();
     });
 
@@ -2771,16 +2870,26 @@ ${obsText}${ctInfo}
     if (resetReverseBtn) resetReverseBtn.addEventListener("click", () => {
       this.reverseStep = { current: 1, total: 4, steps: { trigger: "", triggerIntensity: 5, oldProgram: "", newChoice: "", result: "", resultIntensity: 5 } };
       this.reverseStep._feedback = "";
-      document.getElementById("reverse-step-card").style.display = "";
-      document.getElementById("reverse-summary").style.display = "none";
-      document.getElementById("reverse-trigger").value = "";
-      document.getElementById("reverse-old").value = "";
-      document.getElementById("reverse-new").value = "";
-      document.getElementById("reverse-result").value = "";
-      document.getElementById("reverse-intensity-before").value = "5";
-      document.getElementById("reverse-intensity-after").value = "5";
-      document.getElementById("intensity-before-val").textContent = "5";
-      document.getElementById("intensity-after-val").textContent = "5";
+      const rsc = document.getElementById("reverse-step-card");
+      const rs = document.getElementById("reverse-summary");
+      if (rsc) rsc.style.display = "";
+      if (rs) rs.style.display = "none";
+      const rt = document.getElementById("reverse-trigger");
+      const ro = document.getElementById("reverse-old");
+      const rn = document.getElementById("reverse-new");
+      const rr = document.getElementById("reverse-result");
+      const rib = document.getElementById("reverse-intensity-before");
+      const ria = document.getElementById("reverse-intensity-after");
+      const ibv = document.getElementById("intensity-before-val");
+      const iav = document.getElementById("intensity-after-val");
+      if (rt) rt.value = "";
+      if (ro) ro.value = "";
+      if (rn) rn.value = "";
+      if (rr) rr.value = "";
+      if (rib) rib.value = "5";
+      if (ria) ria.value = "5";
+      if (ibv) ibv.textContent = "5";
+      if (iav) iav.textContent = "5";
       this.renderReverseStep();
     });
 
@@ -2793,8 +2902,8 @@ ${obsText}${ctInfo}
     // 情绪强度滑动条
     const intensityBefore = document.getElementById("reverse-intensity-before");
     const intensityAfter = document.getElementById("reverse-intensity-after");
-    if (intensityBefore) intensityBefore.addEventListener("input", function() { document.getElementById("intensity-before-val").textContent = this.value; });
-    if (intensityAfter) intensityAfter.addEventListener("input", function() { document.getElementById("intensity-after-val").textContent = this.value; });
+    if (intensityBefore) intensityBefore.addEventListener("input", function() { const el = document.getElementById("intensity-before-val"); if (el) el.textContent = this.value; });
+    if (intensityAfter) intensityAfter.addEventListener("input", function() { const el = document.getElementById("intensity-after-val"); if (el) el.textContent = this.value; });
 
     // 周报导出提醒
     const weeklyExportBtn = document.getElementById("weekly-export-btn");
@@ -2849,8 +2958,10 @@ ${obsText}${ctInfo}
     }
 
     // ===== 识人板块事件 =====
-    document.getElementById("add-person-btn").addEventListener("click", () => this.showPersonForm());
-    document.getElementById("person-back-btn").addEventListener("click", () => this.closePerson());
+    const addPersonBtn = document.getElementById("add-person-btn");
+    const personBackBtn = document.getElementById("person-back-btn");
+    if (addPersonBtn) addPersonBtn.addEventListener("click", () => this.showPersonForm());
+    if (personBackBtn) personBackBtn.addEventListener("click", () => this.closePerson());
 
     // 观察类型切换
     document.querySelectorAll(".obs-type-btn").forEach(btn => {
@@ -2862,10 +2973,12 @@ ${obsText}${ctInfo}
     });
 
     // 添加观察记录
-    document.getElementById("add-obs-btn").addEventListener("click", () => {
+    const addObsBtn = document.getElementById("add-obs-btn");
+    if (addObsBtn) addObsBtn.addEventListener("click", () => {
       const p = this.getCurrentPerson();
       if (!p) return;
       const input = document.getElementById("obs-input");
+      if (!input) return;
       const content = input.value.trim();
       if (!content) { this.showToast("请输入观察内容"); return; }
       p.observations.push({
@@ -2885,7 +2998,8 @@ ${obsText}${ctInfo}
     });
 
     // 小树分析
-    document.getElementById("analyze-person-btn").addEventListener("click", () => this.analyzePerson());
+    const analyzePersonBtn = document.getElementById("analyze-person-btn");
+    if (analyzePersonBtn) analyzePersonBtn.addEventListener("click", () => this.analyzePerson());
 
     // 设置
     const saveSettingsBtn = document.getElementById("save-settings-btn");
