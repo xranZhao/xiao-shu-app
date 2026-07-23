@@ -916,6 +916,20 @@ ${historySummary}`;
     html += `<span class="s-text">${trigIntensity} → ${resultIntensity} ${this.getIntensityChangeText(trigIntensity, resultIntensity)}</span>`;
     document.getElementById("reverse-summary-body").innerHTML = html;
 
+    // 生成标题：先用本地规则，再异步用 AI 优化
+    const reverseTitleInput = document.getElementById("reverse-summary-title");
+    if (reverseTitleInput) {
+      const localTitle = this.generateReverseLocalTitle(steps);
+      reverseTitleInput.value = localTitle;
+      if (CONFIG.API_KEY) {
+        this.generateReverseAITitle(steps).then((aiTitle) => {
+          if (aiTitle) reverseTitleInput.value = aiTitle;
+        }).catch((err) => {
+          console.error("AI 标题生成失败", err);
+        });
+      }
+    }
+
     const fbLabel = document.getElementById("reverse-feedback-label");
     const fbBody = document.getElementById("reverse-feedback");
     if (!fbLabel || !fbBody) return;
@@ -976,6 +990,52 @@ ${historySummary}`;
     return "→ 情绪强度不变";
   },
 
+  generateReverseLocalTitle(steps) {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const triggerKey = (steps.trigger || "").replace(/\s+/g, "").slice(0, 8) || "反向";
+    return `${today}-${triggerKey}`;
+  },
+
+  async generateReverseAITitle(steps) {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const prompt = `请根据用户以下反向选择记录，直接总结一个标题。
+
+要求：
+1. 标题格式：YYYYMMDD-主题总结
+2. 时间使用今天的日期：${today}
+3. 主题总结：用5-10个汉字提炼这次反向选择的核心——旧程序是什么？他选择了什么样的反向？例如：
+   - 不好："旧程序说逃避"（太泛）
+   - 好："拖延时选择面对"（具体，聚焦反向动作）
+4. 只输出标题，不要任何其他内容
+
+【触发】${steps.trigger || ""}
+【旧程序会说】${steps.oldProgram || ""}
+【我选择了反向】${steps.newChoice || ""}
+【结果】${steps.result || ""}`;
+
+    const response = await fetch(CONFIG.BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages: [
+          { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.5,
+        max_tokens: 100,
+      }),
+    });
+    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
+    const data = await response.json();
+    let title = data.choices[0].message.content.trim();
+    title = title.replace(/^["'`]+|["'`]+$/g, "").replace(/```/g, "").trim();
+    if (!/^\d{8}-.+$/.test(title)) {
+      throw new Error("AI 返回的标题格式不正确");
+    }
+    return title;
+  },
+
   async callReverseWitness(steps, triggerIntensity, resultIntensity) {
     const prompt = `这是我的内化体验记录。在我用新程序处理事情的时候，请用小树的视角做见证。
 在我写的具体细节里，帮我轻轻地聚焦我做到了什么，如何做到的，就像帮我把这个证据捡起来，放在手里。不用解释你在做什么，直接开始。
@@ -1008,9 +1068,12 @@ ${historySummary}`;
     const steps = this.reverse.steps;
     const fbEl = document.getElementById("reverse-feedback");
     const feedback = fbEl ? fbEl.innerText || fbEl.textContent : "";
+    const titleInput = document.getElementById("reverse-summary-title");
+    const title = titleInput ? titleInput.value.trim() : this.generateReverseLocalTitle(steps);
 
     const diary = {
       id: Date.now(),
+      title: title || this.generateReverseLocalTitle(steps),
       trigger: steps.trigger,
       oldProgram: steps.oldProgram,
       newChoice: steps.newChoice,
@@ -1051,9 +1114,7 @@ ${historySummary}`;
       card.className = "diary-card";
       card.dataset.id = String(d.id);
 
-      const dateStr = new Date(d.createdAt).toLocaleDateString("zh-CN");
-      const titlePreview = (d.trigger || "反向选择").slice(0, 20);
-      const titleDisplay = dateStr + " " + (d.trigger && d.trigger.length > 20 ? titlePreview + "..." : titlePreview);
+      const titleDisplay = d.title || (new Date(d.createdAt).toLocaleDateString("zh-CN") + " " + ((d.trigger || "反向选择").slice(0, 20)));
 
       card.innerHTML = `
         <div class="diary-header">
