@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=31">
+  <link rel="stylesheet" href="style.css?v=30">
   <script>
     (function () {
       function setVh() {
@@ -68,7 +68,7 @@
       <div class="diary-mode-tabs">
         <button class="diary-mode-btn active" data-mode="guided">🧭 觉察此刻</button>
         <button class="diary-mode-btn" data-mode="my">🎨 日日记录</button>
-        <button class="diary-mode-btn" data-mode="free">🔄 反向选择</button>
+        <button class="diary-mode-btn" data-mode="free">✏️ 自由书写</button>
       </div>
 
       <!-- 引导式觉察 -->
@@ -253,80 +253,19 @@
         <div id="mood-diary-list" class="diary-list"></div>
       </div>
 
-      <!-- 反向选择 -->
+      <!-- 自由书写 -->
       <div id="free-diary" class="diary-mode-content">
-        <div class="reverse-card" id="reverse-step-card">
-          <h3>🔄 反向选择</h3>
-          <p class="reverse-subtitle">真正的松动一定在体验中发生。</p>
-
-          <div class="reverse-count" id="reverse-count">至春已经选择了 <strong>0</strong> 次反向</div>
-
-          <div class="step-progress">
-            <span class="step-badge">第 <strong id="reverse-step-num">1</strong>/4 步</span>
-            <span class="step-name" id="reverse-step-name">触发</span>
-          </div>
-
-          <div class="step-question">
-            <div class="sq-avatar">🔄</div>
-            <div class="sq-bubble" id="reverse-step-hint">发生了什么？客观描述，一句话。</div>
-          </div>
-
-          <!-- Step 1: 触发 -->
-          <div class="reverse-step-content" id="reverse-step-1">
-            <textarea id="reverse-trigger" class="reverse-input" placeholder="什么人说了什么话？做了什么事？" rows="4"></textarea>
-            <div class="intensity-inline">
-              <label>触发时的情绪强度</label>
-              <div class="intensity-slider-row">
-                <span class="intensity-val" id="intensity-before-val">5</span>
-                <input type="range" id="reverse-intensity-before" min="1" max="10" value="5">
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 2: 旧程序 -->
-          <div class="reverse-step-content" id="reverse-step-2" style="display:none;">
-            <textarea id="reverse-old" class="reverse-input" placeholder="那个瞬间，旧程序在你脑子里说了什么？" rows="4"></textarea>
-          </div>
-
-          <!-- Step 3: 反向选择 -->
-          <div class="reverse-step-content" id="reverse-step-3" style="display:none;">
-            <textarea id="reverse-new" class="reverse-input" placeholder="你做了什么不一样的事？" rows="4"></textarea>
-          </div>
-
-          <!-- Step 4: 结果 -->
-          <div class="reverse-step-content" id="reverse-step-4" style="display:none;">
-            <textarea id="reverse-result" class="reverse-input" placeholder="对方什么反应？你什么感受？和以前哪里不同？" rows="4"></textarea>
-            <div class="intensity-inline">
-              <label>现在的情绪强度</label>
-              <div class="intensity-slider-row">
-                <span class="intensity-val" id="intensity-after-val">5</span>
-                <input type="range" id="reverse-intensity-after" min="1" max="10" value="5">
-              </div>
-            </div>
-          </div>
-
-          <div class="step-actions">
-            <button id="reverse-prev-btn" class="btn-step-prev" style="display:none;">← 上一步</button>
-            <button id="reverse-next-btn" class="btn-step-next">下一步 →</button>
-          </div>
+        <div class="diary-write">
+          <h3>✏️ 自由书写</h3>
+          <input type="text" id="free-diary-title" placeholder="标题（可选，留空自动生成）">
+          <textarea id="free-diary-content" placeholder="今天发生了什么？你有什么情绪？试着描述一下..." rows="6"></textarea>
+          <div id="free-diary-loading" class="diary-loading" style="display:none;">小树正在读你的日记...</div>
+          <button id="save-free-diary-btn" class="btn-primary">保存并获取小树回应</button>
         </div>
 
-        <!-- 汇总 + 小树见证 -->
-        <div id="reverse-summary" class="guided-summary-card" style="display:none;">
-          <div class="summary-header">🔄 反向选择记录</div>
-          <div class="summary-body" id="reverse-summary-body"></div>
-          <div id="reverse-loading" class="diary-loading" style="display:none;">小树正在见证...</div>
-          <div class="summary-feedback-label" id="reverse-feedback-label">🌱 小树见证</div>
-          <div class="summary-feedback" id="reverse-feedback"></div>
-          <div class="summary-actions">
-            <button id="save-reverse-btn" class="btn-primary">💾 保存这条记录</button>
-            <button id="reset-reverse-btn" class="btn-text">重新来过</button>
-          </div>
-        </div>
-
-        <!-- 反向选择列表 -->
+        <!-- 自由书写列表 -->
         <div class="diary-toolbar">
-          <button id="export-free-btn" class="btn-text">📤 导出反向选择</button>
+          <button id="export-free-btn" class="btn-text">📤 导出自由书写</button>
           <span class="diary-count" id="free-diary-count"></span>
         </div>
         <div id="free-diary-list" class="diary-list"></div>
