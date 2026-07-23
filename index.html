@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=30">
+  <link rel="stylesheet" href="style.css?v=31">
   <script>
     (function () {
       function setVh() {
@@ -68,7 +68,7 @@
       <div class="diary-mode-tabs">
         <button class="diary-mode-btn active" data-mode="guided">🧭 觉察此刻</button>
         <button class="diary-mode-btn" data-mode="my">🎨 日日记录</button>
-        <button class="diary-mode-btn" data-mode="free">✏️ 自由书写</button>
+        <button class="diary-mode-btn" data-mode="reverse">🔄 反向选择</button>
       </div>
 
       <!-- 引导式觉察 -->
@@ -253,22 +253,60 @@
         <div id="mood-diary-list" class="diary-list"></div>
       </div>
 
-      <!-- 自由书写 -->
-      <div id="free-diary" class="diary-mode-content">
-        <div class="diary-write">
-          <h3>✏️ 自由书写</h3>
-          <input type="text" id="free-diary-title" placeholder="标题（可选，留空自动生成）">
-          <textarea id="free-diary-content" placeholder="今天发生了什么？你有什么情绪？试着描述一下..." rows="6"></textarea>
-          <div id="free-diary-loading" class="diary-loading" style="display:none;">小树正在读你的日记...</div>
-          <button id="save-free-diary-btn" class="btn-primary">保存并获取小树回应</button>
+      <!-- 反向选择 -->
+      <div id="reverse-diary" class="diary-mode-content">
+        <!-- 副标题 -->
+        <div class="reverse-subtitle">改变在体验中逐步发生...</div>
+
+        <div class="reverse-step-card" id="reverse-step-card">
+          <div class="step-progress">
+            <span class="step-badge">第 <strong id="reverse-step-num">1</strong>/4 步</span>
+            <span class="step-name" id="reverse-step-name">触发</span>
+          </div>
+          <div class="step-question">
+            <div class="sq-avatar">🌱</div>
+            <div class="sq-bubble" id="reverse-step-question">
+              发生了什么事让你有情绪波动？先客观描述一下发生了什么。谁说了什么、做了什么？
+            </div>
+          </div>
+          <textarea id="reverse-step-input" class="step-input" placeholder="在这里写下你的回答..." rows="5"></textarea>
+
+          <!-- 强度滑块（步骤1和步骤4显示） -->
+          <div id="reverse-intensity" class="reverse-intensity" style="display:none;">
+            <div class="intensity-label">
+              <span id="reverse-intensity-label-text">触发时情绪强度</span>
+              <span class="intensity-value" id="reverse-intensity-value">5</span>
+            </div>
+            <input type="range" id="reverse-intensity-slider" class="intensity-slider" min="1" max="10" value="5" step="1">
+            <div class="intensity-marks">
+              <span>1</span><span>3</span><span>5</span><span>7</span><span>10</span>
+            </div>
+          </div>
+
+          <div class="step-actions">
+            <button id="reverse-prev-btn" class="btn-step-prev">← 上一步</button>
+            <button id="reverse-next-btn" class="btn-step-next">下一步 →</button>
+          </div>
         </div>
 
-        <!-- 自由书写列表 -->
-        <div class="diary-toolbar">
-          <button id="export-free-btn" class="btn-text">📤 导出自由书写</button>
-          <span class="diary-count" id="free-diary-count"></span>
+        <!-- 汇总 + AI 见证 -->
+        <div id="reverse-summary" class="reverse-summary-card" style="display:none;">
+          <div class="summary-header">✅ 反向选择已完成</div>
+          <div class="summary-body" id="reverse-summary-body"></div>
+          <div class="summary-feedback-label" id="reverse-feedback-label">🌱 小树正在见证...</div>
+          <div class="summary-feedback" id="reverse-feedback"></div>
+          <div class="summary-actions">
+            <button id="save-reverse-btn" class="btn-primary">💾 保存到反向选择记录</button>
+            <button id="reset-reverse-btn" class="btn-text">重新来过</button>
+          </div>
         </div>
-        <div id="free-diary-list" class="diary-list"></div>
+
+        <!-- 反向选择列表 -->
+        <div class="diary-toolbar">
+          <span class="reverse-counter" id="reverse-counter">你已经积累了 0 次反向</span>
+          <button id="export-reverse-btn" class="btn-text">📤 导出反向选择</button>
+        </div>
+        <div id="reverse-diary-list" class="diary-list"></div>
       </div>
 
     </div>
@@ -505,7 +543,7 @@
 
   <script src="config.js?v=22"></script>
   <script src="xiaoshu-prompt.js?v=22"></script>
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>
 

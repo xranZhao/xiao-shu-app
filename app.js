@@ -5,7 +5,7 @@ const App = {
   currentChat: [],
   diaries: [],        // 觉察日记
   moodDiaries: [],    // 情绪日记
-  freeDiaries: [],    // 自由书写
+  reverseDiaries: [], // 反向选择
   activeTab: "chat",
   // 引导式觉察状态
   guided: {
@@ -54,7 +54,7 @@ const App = {
     this.renderChat();
     this.renderDiaries();
     this.renderMoodDiaries();
-    this.renderFreeDiaries();
+    this.renderReverseDiaries();
     this.renderSettings();
     this.setupEventListeners();
     this.setMode("xiaoshu");
@@ -74,13 +74,13 @@ const App = {
       const chat = localStorage.getItem("xs_chat_history");
       const diaries = localStorage.getItem("xs_diaries");
       const moodDiaries = localStorage.getItem("xs_mood_diaries");
-      const freeDiaries = localStorage.getItem("xs_free_diaries");
+      const reverseRaw = localStorage.getItem("xs_free_diaries");
       const mode = localStorage.getItem("xs_mode");
       const people = localStorage.getItem("xs_people");
       if (chat) this.currentChat = JSON.parse(chat);
       if (diaries) this.diaries = JSON.parse(diaries);
       if (moodDiaries) this.moodDiaries = JSON.parse(moodDiaries);
-      if (freeDiaries) this.freeDiaries = JSON.parse(freeDiaries);
+      if (reverseRaw) this.reverseDiaries = JSON.parse(reverseRaw);
       if (mode) this.currentMode = mode;
       if (people) this.people = JSON.parse(people);
 
@@ -96,10 +96,16 @@ const App = {
       // 迁移：旧版本（V2）中 source 为 "free" 的自由书写在 xs_diaries 里，迁移到 xs_free_diaries
       const migratedFree = this.diaries.filter(d => d.source === "free");
       if (migratedFree.length > 0) {
-        this.freeDiaries = [...migratedFree, ...this.freeDiaries];
+        this.reverseDiaries = [...migratedFree, ...this.reverseDiaries];
         this.diaries = this.diaries.filter(d => d.source !== "free");
         this.saveData();
         console.log(`已迁移 ${migratedFree.length} 条自由书写到新存储`);
+      }
+
+      // 过滤旧 free 格式数据（source: "free" 的老数据与反向选择数据模型不兼容）
+      if (this.reverseDiaries.length > 0 && this.reverseDiaries[0].source === "free") {
+        console.log("检测到旧自由书写格式数据，已自动清除");
+        this.reverseDiaries = [];
       }
     } catch (e) {
       console.error("加载数据失败", e);
@@ -111,7 +117,7 @@ const App = {
       localStorage.setItem("xs_chat_history", JSON.stringify(this.currentChat.slice(-CONFIG.MAX_HISTORY)));
       localStorage.setItem("xs_diaries", JSON.stringify(this.diaries));
       localStorage.setItem("xs_mood_diaries", JSON.stringify(this.moodDiaries));
-      localStorage.setItem("xs_free_diaries", JSON.stringify(this.freeDiaries));
+      localStorage.setItem("xs_free_diaries", JSON.stringify(this.reverseDiaries));
       localStorage.setItem("xs_mode", this.currentMode);
       localStorage.setItem("xs_people", JSON.stringify(this.people));
     } catch (e) {
@@ -229,6 +235,23 @@ const App = {
   },
 
   GUIDED_STEP_NAMES: { 1: "情绪事件", 2: "身心感受", 3: "防御方式", 4: "延展模型" },
+
+  // 反向选择步骤
+  REVERSE_QUESTIONS: {
+    1: "发生了什么事让你有情绪波动？\n\n先客观描述一下发生了什么。谁说了什么、做了什么？不急着分析，就描述事件本身。",
+    2: "如果按旧程序来处理这件事，你会怎么想、怎么说、怎么做？\n\n比如：旧程序会说「我就是这样的人」「他不应该这样对我」「算了吧，说了也没用」…",
+    3: "现在做一个「反向」——如果不用旧程序，你会选择怎么想、怎么说、怎么做？\n\n哪怕是小小的不同，哪怕只是语气软一点、停顿一下、问一句而不是指责一句。",
+    4: "如果你做到了反向选择——哪怕只是在心里排练了一遍——感觉如何？结果是什么？\n\n不需要是完美的结果，只需要是真实的体验。",
+  },
+  REVERSE_STEP_NAMES: { 1: "触发", 2: "旧程序", 3: "反向选择", 4: "结果" },
+
+  // 反向选择当前步骤状态
+  reverse: {
+    currentStep: 1,
+    triggerIntensity: 5,
+    resultIntensity: 5,
+    steps: { trigger: "", oldProgram: "", newChoice: "", result: "" },
+  },
 
   getGuidedDraftKey() {
     const today = new Date().toISOString().slice(0, 10);
@@ -810,102 +833,290 @@ ${historySummary}`;
     }
   },
 
-  // ========== 自由书写 ==========
-  async saveFreeDiary() {
-    const titleInput = document.getElementById("free-diary-title");
-    const contentInput = document.getElementById("free-diary-content");
-    const title = titleInput.value.trim();
-    const content = contentInput.value.trim();
-    if (!content) { this.showToast("请先写下今天的觉察"); return; }
+  // ========== 反向选择 ==========
 
-    this.showFreeDiaryLoading(true);
-    let feedback = "";
-    try {
-      feedback = await this.callAIFeedback(content);
-    } catch (err) {
-      console.error(err);
-      feedback = "（小树反馈获取失败，你可以稍后再试）";
+  // 步骤渲染
+  renderReverseStep() {
+    const step = this.reverse.currentStep;
+    if (!document.getElementById("reverse-step-num")) return;
+    document.getElementById("reverse-step-num").textContent = step;
+    document.getElementById("reverse-step-name").textContent = this.REVERSE_STEP_NAMES[step];
+    document.getElementById("reverse-step-question").textContent = this.REVERSE_QUESTIONS[step];
+    document.getElementById("reverse-step-input").value = this.reverse.steps[Object.keys(this.reverse.steps)[step - 1]] || "";
+
+    // 强度滑块仅在步骤1和步骤4显示
+    const intensityEl = document.getElementById("reverse-intensity");
+    if (intensityEl) {
+      intensityEl.style.display = (step === 1 || step === 4) ? "" : "none";
+      const labelText = document.getElementById("reverse-intensity-label-text");
+      if (step === 1) {
+        if (labelText) labelText.textContent = "触发时情绪强度";
+        document.getElementById("reverse-intensity-slider").value = this.reverse.triggerIntensity;
+        document.getElementById("reverse-intensity-value").textContent = this.reverse.triggerIntensity;
+      } else if (step === 4) {
+        if (labelText) labelText.textContent = "现在情绪强度";
+        document.getElementById("reverse-intensity-slider").value = this.reverse.resultIntensity;
+        document.getElementById("reverse-intensity-value").textContent = this.reverse.resultIntensity;
+      }
     }
+
+    document.getElementById("reverse-prev-btn").style.visibility = step === 1 ? "hidden" : "visible";
+    document.getElementById("reverse-next-btn").textContent = step === 4 ? "✅ 完成" : "下一步 →";
+  },
+
+  reversePrev() {
+    if (this.reverse.currentStep <= 1) return;
+    const key = Object.keys(this.reverse.steps)[this.reverse.currentStep - 1];
+    this.reverse.steps[key] = document.getElementById("reverse-step-input").value;
+    if (this.reverse.currentStep === 1) {
+      this.reverse.triggerIntensity = parseInt(document.getElementById("reverse-intensity-slider").value);
+    }
+    if (this.reverse.currentStep === 4) {
+      this.reverse.resultIntensity = parseInt(document.getElementById("reverse-intensity-slider").value);
+    }
+    this.reverse.currentStep--;
+    this.renderReverseStep();
+  },
+
+  reverseNext() {
+    const key = Object.keys(this.reverse.steps)[this.reverse.currentStep - 1];
+    const value = document.getElementById("reverse-step-input").value.trim();
+    this.reverse.steps[key] = value;
+
+    if (this.reverse.currentStep === 1) {
+      this.reverse.triggerIntensity = parseInt(document.getElementById("reverse-intensity-slider").value);
+    }
+    if (this.reverse.currentStep === 4) {
+      this.reverse.resultIntensity = parseInt(document.getElementById("reverse-intensity-slider").value);
+    }
+
+    if (this.reverse.currentStep < 4) {
+      this.reverse.currentStep++;
+      this.renderReverseStep();
+    } else {
+      this.showReverseSummary();
+    }
+  },
+
+  async showReverseSummary() {
+    const steps = this.reverse.steps;
+    const trigIntensity = this.reverse.triggerIntensity;
+    const resultIntensity = this.reverse.resultIntensity;
+
+    document.getElementById("reverse-step-card").style.display = "none";
+    const summary = document.getElementById("reverse-summary");
+    summary.style.display = "";
+
+    const labels = { trigger: "触发", oldProgram: "旧程序会说", newChoice: "我选择了反向", result: "结果" };
+    let html = "";
+    for (const [key, label] of Object.entries(labels)) {
+      html += `<span class="s-label">${label}</span><span class="s-text">${this.escapeHtml(steps[key])}</span>`;
+    }
+    html += `<span class="s-label">情绪强度变化</span>`;
+    html += `<span class="s-text">${trigIntensity} → ${resultIntensity} ${this.getIntensityChangeText(trigIntensity, resultIntensity)}</span>`;
+    document.getElementById("reverse-summary-body").innerHTML = html;
+
+    const fbLabel = document.getElementById("reverse-feedback-label");
+    const fbBody = document.getElementById("reverse-feedback");
+    if (!fbLabel || !fbBody) return;
+
+    if (!CONFIG.API_KEY) {
+      fbLabel.textContent = "🌱 缺少 API Key";
+      fbBody.innerHTML = "请先到「⚙️ 设置」填入你的 API Key，然后回来点「重新来过」重新提交。";
+      return;
+    }
+
+    fbLabel.textContent = "🌱 小树正在见证...";
+    fbBody.innerHTML = `
+      <div class="feedback-progress">
+        <div class="fp-bar"><div class="fp-fill" id="fp-fill"></div></div>
+        <div class="fp-text" id="fp-text">连接中...</div>
+      </div>`;
+
+    let progressTimer = null;
+    let progress = 0;
+    const advanceProgress = () => {
+      if (progress < 90) {
+        progress += Math.random() * 15 + 5;
+        if (progress > 90) progress = 90;
+        const fillEl = document.getElementById("fp-fill");
+        if (fillEl) fillEl.style.width = progress + "%";
+        const textEl = document.getElementById("fp-text");
+        const messages = ["连接中...", "小树在读你的触发事件...", "小树在看你的旧程序...", "小树在感受你的反向选择...", "小树在体会你的结果..."];
+        const idx = Math.min(Math.floor(progress / 20), messages.length - 1);
+        if (textEl) textEl.textContent = messages[idx];
+        progressTimer = setTimeout(advanceProgress, 600 + Math.random() * 800);
+      }
+    };
+    advanceProgress();
+
+    try {
+      const feedback = await this.callReverseWitness(steps, trigIntensity, resultIntensity);
+      clearTimeout(progressTimer);
+      const fillEl = document.getElementById("fp-fill");
+      if (fillEl) fillEl.style.width = "100%";
+      const textEl = document.getElementById("fp-text");
+      if (textEl) textEl.textContent = "完成 ✓";
+      setTimeout(() => {
+        fbLabel.textContent = "🌱 小树见证";
+        fbBody.innerHTML = this.markdownToHtml(feedback);
+      }, 400);
+    } catch (err) {
+      clearTimeout(progressTimer);
+      console.error(err);
+      fbLabel.textContent = "🌱 小树见证（获取失败）";
+      fbBody.innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}<br><br>请检查：<br>1. ⚙️ 设置页 API Key 是否正确<br>2. 网络连接是否正常<br>3. API 额度是否用完<br><br>修复后点「重新来过」再试一次。</div>`;
+    }
+  },
+
+  getIntensityChangeText(from, to) {
+    const diff = to - from;
+    if (diff > 0) return "⬆ 情绪有所上升";
+    if (diff < 0) return "⬇ 情绪有所下降";
+    return "→ 情绪强度不变";
+  },
+
+  async callReverseWitness(steps, triggerIntensity, resultIntensity) {
+    const prompt = `这是我的内化体验记录。在我用新程序处理事情的时候，请用小树的视角做见证。
+在我写的具体细节里，帮我轻轻地聚焦我做到了什么，如何做到的，就像帮我把这个证据捡起来，放在手里。不用解释你在做什么，直接开始。
+
+【触发】${steps.trigger}
+【旧程序会说】${steps.oldProgram}
+【我选择了反向】${steps.newChoice}
+【结果】${steps.result}
+【情绪变化】${triggerIntensity} → ${resultIntensity}`;
+
+    const response = await fetch(CONFIG.BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages: [
+          { role: "system", content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理见证助手。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 4000,
+      }),
+    });
+    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
+    const data = await response.json();
+    return data.choices[0].message.content;
+  },
+
+  async saveReverseDiary() {
+    const steps = this.reverse.steps;
+    const fbEl = document.getElementById("reverse-feedback");
+    const feedback = fbEl ? fbEl.innerText || fbEl.textContent : "";
 
     const diary = {
       id: Date.now(),
-      title: title || new Date().toLocaleDateString("zh-CN"),
-      date: new Date().toISOString().slice(0, 10),
-      source: "free",
-      content,
+      trigger: steps.trigger,
+      oldProgram: steps.oldProgram,
+      newChoice: steps.newChoice,
+      result: steps.result,
+      triggerIntensity: this.reverse.triggerIntensity,
+      resultIntensity: this.reverse.resultIntensity,
       feedback,
       createdAt: Date.now(),
     };
 
-    this.freeDiaries.unshift(diary);
+    this.reverseDiaries.unshift(diary);
     this.saveData();
-    titleInput.value = "";
-    contentInput.value = "";
-    this.renderFreeDiaries();
-    this.showFreeDiaryLoading(false);
-    this.showToast("自由书写已保存 🌱");
+
+    // 重置状态
+    this.reverse = { currentStep: 1, triggerIntensity: 5, resultIntensity: 5, steps: { trigger: "", oldProgram: "", newChoice: "", result: "" } };
+
+    document.getElementById("reverse-step-card").style.display = "";
+    document.getElementById("reverse-summary").style.display = "none";
+    this.renderReverseStep();
+    this.renderReverseDiaries();
+    this.showToast("反向选择已保存 ✨");
   },
 
-  showFreeDiaryLoading(show) {
-    const btn = document.getElementById("save-free-diary-btn");
-    const loading = document.getElementById("free-diary-loading");
-    if (btn) btn.disabled = show;
-    if (loading) loading.style.display = show ? "block" : "none";
-  },
-
-  renderFreeDiaries() {
-    const list = document.getElementById("free-diary-list");
-    const countEl = document.getElementById("free-diary-count");
+  renderReverseDiaries() {
+    const list = document.getElementById("reverse-diary-list");
+    const counterEl = document.getElementById("reverse-counter");
     if (!list) return;
-    if (countEl) countEl.textContent = `共 ${this.freeDiaries.length} 篇`;
+    if (counterEl) counterEl.textContent = `你已经积累了 ${this.reverseDiaries.length} 次反向`;
 
-    if (this.freeDiaries.length === 0) {
-      list.innerHTML = '<div class="empty">还没有自由书写，开始你的第一篇吧 ✍️</div>';
+    if (this.reverseDiaries.length === 0) {
+      list.innerHTML = '<div class="empty">还没有反向选择记录，开始你的第一次反向吧 🔄</div>';
       return;
     }
 
     list.innerHTML = "";
-    this.freeDiaries.forEach((d) => {
+    this.reverseDiaries.forEach((d) => {
       const card = document.createElement("div");
       card.className = "diary-card";
       card.dataset.id = String(d.id);
 
+      const titlePreview = (d.trigger || "反向选择").slice(0, 30);
+      const titleDisplay = d.trigger && d.trigger.length > 30 ? titlePreview + "..." : titlePreview;
+
       card.innerHTML = `
         <div class="diary-header">
           <div class="diary-header-main">
-            <h4>${this.escapeHtml(d.title)}</h4>
+            <h4>${this.escapeHtml(titleDisplay)}</h4>
             <span class="diary-date">${new Date(d.createdAt).toLocaleString("zh-CN")}</span>
           </div>
           <span class="expand-icon">▶</span>
         </div>
         <div class="diary-body">
-          <div class="diary-content">${this.markdownToHtml(d.content)}</div>
+          <div class="reverse-mini">
+            <div class="rs-line"><span class="s-label">触发</span>（强度 ${d.triggerIntensity}） ${this.escapeHtml(d.trigger)}</div>
+            <div class="rs-line"><span class="s-label">旧程序</span> ${this.escapeHtml(d.oldProgram)}</div>
+            <div class="rs-line"><span class="s-label">反向选择</span> ${this.escapeHtml(d.newChoice)}</div>
+            <div class="rs-line"><span class="s-label">结果</span>（强度 ${d.resultIntensity}） ${this.escapeHtml(d.result)}</div>
+            <div class="rs-line"><span class="s-label">情绪变化</span> ${d.triggerIntensity} → ${d.resultIntensity}</div>
+          </div>
           <div class="diary-feedback">
-            <div class="feedback-label">🌱 小树回应</div>
+            <div class="feedback-label">🌱 小树见证</div>
             <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
           </div>
           <div class="diary-card-actions">
-            <button class="btn-text" onclick="App.exportFreeDiary(${d.id})">📤 导出</button>
-            <button class="btn-text danger" onclick="App.deleteFreeDiary(${d.id})">删除</button>
+            <button class="btn-text" onclick="App.exportReverseDiary(${d.id})">📤 导出</button>
+            <button class="btn-text danger" onclick="App.deleteReverseDiary(${d.id})">删除</button>
           </div>
         </div>
       `;
 
       const header = card.querySelector(".diary-header");
-      header.addEventListener("click", () => {
-        card.classList.toggle("expanded");
-      });
-
+      header.addEventListener("click", () => { card.classList.toggle("expanded"); });
       list.appendChild(card);
     });
   },
 
-  deleteFreeDiary(id) {
-    if (!confirm("确定删除这条自由书写吗？")) return;
-    this.freeDiaries = this.freeDiaries.filter((d) => d.id !== id);
+  deleteReverseDiary(id) {
+    if (!confirm("确定删除这条反向选择记录吗？")) return;
+    this.reverseDiaries = this.reverseDiaries.filter((d) => d.id !== id);
     this.saveData();
-    this.renderFreeDiaries();
-    this.showToast("自由书写已删除");
+    this.renderReverseDiaries();
+    this.showToast("反向选择已删除");
+  },
+
+  exportReverseDiary(id) {
+    const d = this.reverseDiaries.find(dd => dd.id === id);
+    if (!d) return;
+    const dateStr = new Date(d.createdAt).toLocaleDateString("zh-CN");
+    const filename = `反向选择_${dateStr.replace(/\//g, "-")}.txt`;
+    let text = `日期：${new Date(d.createdAt).toLocaleString("zh-CN")}\n`;
+    text += `类型：反向选择\n\n`;
+    text += `【触发】(${d.triggerIntensity})\n${d.trigger}\n\n`;
+    text += `【旧程序会说】\n${d.oldProgram}\n\n`;
+    text += `【我选择了反向】\n${d.newChoice}\n\n`;
+    text += `【结果】(${d.resultIntensity})\n${d.result}\n\n`;
+    text += `【情绪变化】${d.triggerIntensity} → ${d.resultIntensity}\n\n`;
+    text += `【🌱 小树见证】\n${d.feedback}\n`;
+    this.downloadFile(filename, text);
+  },
+
+  exportAllReverseDiaries() {
+    if (this.reverseDiaries.length === 0) { this.showToast("没有反向选择可导出"); return; }
+    for (const d of this.reverseDiaries) {
+      this.exportReverseDiary(d.id);
+    }
+    this.showToast(`已导出 ${this.reverseDiaries.length} 条反向选择`);
   },
 
   extractPrimaryEmotion(feelingText) {
@@ -1232,35 +1443,6 @@ ${historySummary}`;
     if (btn) btn.textContent = "播放";
   },
 
-  async callAIFeedback(content) {
-    const today = new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
-    const prompt = `这是我的觉察日记（自由书写）。请先用反移情的技术白描我的感受——不是安慰我，也不是分析我，就是让我看到"原来我是这样的感觉"。一两句就够了。
-
-然后再用你（谢小树）的视角，调用你课程中的具体模型和框架，帮我看清行为模式背后的核心需求。可以尖锐，可以直接引用课程里的概念和金句。不要泛泛而谈，要具体到我的文本。看到什么就直说。
-
-${content}`;
-
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          {
-            role: "system",
-            content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理洞察助手。",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4000,
-      }),
-    });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    return data.choices[0].message.content;
-  },
-
   renderDiaries() {
     // 只显示觉察日记（来源为 guided 且非 happy），不显示导入的快乐治愈小分队
     const guidedDiaries = this.diaries.filter((d) => d.source === "guided" && (d.category || d.steps?.category) !== "happy");
@@ -1412,24 +1594,6 @@ ${content}`;
     this.showToast(`已导出 ${this.moodDiaries.length} 篇日日记录`);
   },
 
-  exportFreeDiary(id) {
-    const d = this.freeDiaries.find(dd => dd.id === id);
-    if (!d) return;
-    const filename = (d.title || "自由书写").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
-    let text = `标题：${d.title}\n日期：${d.date}\n类型：自由书写\n\n`;
-    text += `${d.content}\n\n`;
-    text += `【🌱 小树回应】\n${d.feedback}\n`;
-    this.downloadFile(filename, text);
-  },
-
-  exportAllFreeDiaries() {
-    if (this.freeDiaries.length === 0) { this.showToast("没有自由书写可导出"); return; }
-    for (const d of this.freeDiaries) {
-      this.exportFreeDiary(d.id);
-    }
-    this.showToast(`已导出 ${this.freeDiaries.length} 篇自由书写`);
-  },
-
   // ========== 一键周报导出 ==========
   getISOWeekNumber(date) {
     // ISO 8601: 周一为一周开始，1月4日所在周为第1周
@@ -1534,14 +1698,18 @@ ${content}`;
     lines.push("");
 
     // 三、自由书写
-    lines.push("## 三、自由书写");
-    const free = this.freeDiaries.filter(d => d.source === "free" && d.createdAt >= weekStart);
-    if (free.length === 0) {
-      lines.push("（本周暂无自由书写）");
+    lines.push("## 三、反向选择");
+    const reverseWeek = this.reverseDiaries.filter(d => d.createdAt >= weekStart);
+    if (reverseWeek.length === 0) {
+      lines.push("（本周暂无反向选择）");
     } else {
-      free.forEach((d) => {
-        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
-        lines.push(d.content || "");
+      reverseWeek.forEach((d) => {
+        lines.push(`${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        lines.push(`触发(${d.triggerIntensity}): ${d.trigger || ""}`);
+        lines.push(`旧程序: ${d.oldProgram || ""}`);
+        lines.push(`反向选择: ${d.newChoice || ""}`);
+        lines.push(`结果(${d.resultIntensity}): ${d.result || ""}`);
+        lines.push(`情绪变化: ${d.triggerIntensity} → ${d.resultIntensity}`);
         lines.push("");
       });
     }
@@ -1703,7 +1871,7 @@ ${content}`;
     this.currentChat = [];
     this.diaries = [];
     this.moodDiaries = [];
-    this.freeDiaries = [];
+    this.reverseDiaries = [];
     this.people = [];
     this.currentMode = "xiaoshu";
     this.saveData();
@@ -2101,7 +2269,8 @@ ${obsText}${ctInfo}
       this.renderGuidedStep();
       this.renderDiaries();
       this.renderMoodDiaries();
-      this.renderFreeDiaries();
+      this.renderReverseStep();
+      this.renderReverseDiaries();
     }
     // 切换到识人页时渲染角色列表
     if (tab === "people") {
@@ -2554,9 +2723,10 @@ ${obsText}${ctInfo}
           document.getElementById("my-diary").classList.add("active");
           this.resetMoodStep();
           this.renderMoodDiaries();
-        } else if (mode === "free") {
-          document.getElementById("free-diary").classList.add("active");
-          this.renderFreeDiaries();
+        } else if (mode === "reverse") {
+          document.getElementById("reverse-diary").classList.add("active");
+          this.renderReverseStep();
+          this.renderReverseDiaries();
         }
       });
     });
@@ -2613,12 +2783,35 @@ ${obsText}${ctInfo}
     const exportMoodBtn = document.getElementById("export-mood-btn");
     if (exportMoodBtn) exportMoodBtn.addEventListener("click", () => this.exportAllMoodDiaries());
 
-    // 自由书写事件
-    const saveFreeDiaryBtn = document.getElementById("save-free-diary-btn");
-    if (saveFreeDiaryBtn) saveFreeDiaryBtn.addEventListener("click", () => this.saveFreeDiary());
+    // 反向选择事件
+    document.getElementById("reverse-prev-btn").addEventListener("click", () => this.reversePrev());
+    document.getElementById("reverse-next-btn").addEventListener("click", () => this.reverseNext());
 
-    const exportFreeBtn = document.getElementById("export-free-btn");
-    if (exportFreeBtn) exportFreeBtn.addEventListener("click", () => this.exportAllFreeDiaries());
+    document.getElementById("save-reverse-btn").addEventListener("click", () => {
+      this.saveReverseDiary().catch((err) => {
+        console.error("保存反向选择失败", err);
+        this.showToast("保存失败，请检查网络或 API Key");
+      });
+    });
+
+    document.getElementById("reset-reverse-btn").addEventListener("click", () => {
+      this.reverse = { currentStep: 1, triggerIntensity: 5, resultIntensity: 5, steps: { trigger: "", oldProgram: "", newChoice: "", result: "" } };
+      document.getElementById("reverse-step-card").style.display = "";
+      document.getElementById("reverse-summary").style.display = "none";
+      document.getElementById("reverse-step-input").value = "";
+      this.renderReverseStep();
+    });
+
+    const exportReverseBtn = document.getElementById("export-reverse-btn");
+    if (exportReverseBtn) exportReverseBtn.addEventListener("click", () => this.exportAllReverseDiaries());
+
+    // 强度滑块实时更新
+    const intensitySlider = document.getElementById("reverse-intensity-slider");
+    if (intensitySlider) {
+      intensitySlider.addEventListener("input", (e) => {
+        document.getElementById("reverse-intensity-value").textContent = e.target.value;
+      });
+    }
 
     // 周报导出提醒
     const weeklyExportBtn = document.getElementById("weekly-export-btn");
