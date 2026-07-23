@@ -1051,8 +1051,9 @@ ${historySummary}`;
       card.className = "diary-card";
       card.dataset.id = String(d.id);
 
-      const titlePreview = (d.trigger || "反向选择").slice(0, 30);
-      const titleDisplay = d.trigger && d.trigger.length > 30 ? titlePreview + "..." : titlePreview;
+      const dateStr = new Date(d.createdAt).toLocaleDateString("zh-CN");
+      const titlePreview = (d.trigger || "反向选择").slice(0, 20);
+      const titleDisplay = dateStr + " " + (d.trigger && d.trigger.length > 20 ? titlePreview + "..." : titlePreview);
 
       card.innerHTML = `
         <div class="diary-header">
