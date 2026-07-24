@@ -569,9 +569,12 @@ const App = {
     let title = data.choices[0].message.content.trim();
     // 去除可能包裹的引号或 markdown 代码块标记
     title = title.replace(/^["'`]+|["'`]+$/g, "").replace(/```/g, "").trim();
-    // 校验格式：YYYYMMDD-...-...
-    if (!/^\d{8}-.+-.+$/.test(title)) {
-      throw new Error("AI 返回的标题格式不正确");
+    // 宽松匹配：AI 可能附带额外文字，从内容中提取标题格式
+    const match = title.match(/(\d{8}-.+?-.+?)(?:\n|$)/) || title.match(/(\d{8}-.+)/);
+    if (match) {
+      title = match[1].trim();
+    } else {
+      throw new Error("AI 返回内容中未找到标题格式");
     }
     return title;
   },
@@ -1030,8 +1033,12 @@ ${historySummary}`;
     const data = await response.json();
     let title = data.choices[0].message.content.trim();
     title = title.replace(/^["'`]+|["'`]+$/g, "").replace(/```/g, "").trim();
-    if (!/^\d{8}-.+$/.test(title)) {
-      throw new Error("AI 返回的标题格式不正确");
+    // 宽松匹配：AI 可能附带额外文字，从内容中提取标题格式
+    const match = title.match(/(\d{8}-.+?)(?:\n|$)/) || title.match(/(\d{8}-.+)/);
+    if (match) {
+      title = match[1].trim();
+    } else {
+      throw new Error("AI 返回内容中未找到标题格式");
     }
     return title;
   },
