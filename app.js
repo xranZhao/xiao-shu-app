@@ -2343,6 +2343,10 @@ ${obsText}${ctInfo}
       this.ensureSparkleQueue();
       this.renderSparkleCard();
     }
+    // 切换到设置页时重新填充输入框（防浏览器密码管理器篡改）
+    if (tab === "settings") {
+      this.renderSettings();
+    }
   },
 
   renderTabs() {
