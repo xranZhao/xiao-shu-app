@@ -1699,6 +1699,7 @@ ${historySummary}`;
     const weekStart = fridayEnd - 7 * 24 * 60 * 60 * 1000;
     lines.push(`# 小树觉察室周报`);
     lines.push(`生成时间：${now}`);
+    lines.push(`时间范围：${new Date(weekStart).toLocaleString("zh-CN")} - ${new Date(fridayEnd).toLocaleString("zh-CN")}`);
     lines.push(`---`);
     lines.push("");
 
