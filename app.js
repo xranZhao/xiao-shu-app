@@ -1829,8 +1829,6 @@ ${historySummary}`;
     const filename = `酥梨周报_${year}_${weekNum}WK_${dateStr}.txt`;
     this.downloadFile(filename, text);
 
-    // 记录导出时间，隐藏提醒
-    this.dismissWeeklyReminder();
     this.showToast("周报已导出 🌱");
   },
 
