@@ -561,7 +561,7 @@ const App = {
           { role: "user", content: prompt },
         ],
         temperature: 0.5,
-        max_tokens: 100,
+        max_tokens: 500,
       }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
@@ -821,7 +821,7 @@ ${historySummary}`;
           { role: "user", content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 100,
+        max_tokens: 500,
       }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
@@ -1026,7 +1026,7 @@ ${historySummary}`;
           { role: "user", content: prompt },
         ],
         temperature: 0.5,
-        max_tokens: 100,
+        max_tokens: 500,
       }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
