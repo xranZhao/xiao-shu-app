@@ -29,15 +29,11 @@
 </head>
 <body>
   <div id="app">
-    <!-- 周五周报导出提醒 -->
-    <div id="weekly-export-banner" class="weekly-export-banner" style="display:none;">
-      <div class="weekly-export-inner">
-        <span class="weekly-export-text">📅 又到周五了，一键导出本周觉察周报吧</span>
-        <div class="weekly-export-actions">
-          <button id="weekly-export-btn" class="weekly-export-btn">📤 一键导出周报</button>
-          <button id="weekly-export-dismiss" class="weekly-export-dismiss">本周不再提醒</button>
-        </div>
-      </div>
+    <!-- 一键导出 -->
+    <div id="export-banner" class="export-banner">
+      <span class="export-banner-label">📤</span>
+      <button id="weekly-export-btn" class="export-banner-btn primary">📅 周报</button>
+      <button id="export-all-btn" class="export-banner-btn">📦 全部</button>
     </div>
 
     <!-- 顶部栏 -->

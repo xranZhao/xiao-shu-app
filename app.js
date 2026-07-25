@@ -1684,40 +1684,12 @@ ${historySummary}`;
   },
 
   checkWeeklyExportReminder() {
-    const banner = document.getElementById("weekly-export-banner");
-    if (!banner) return;
-    const now = new Date();
-    const day = now.getDay();
-    // 只在周五(5)、周六(6)、周日(0)显示
-    if (day !== 5 && day !== 6 && day !== 0) { banner.style.display = "none"; return; }
-
-    let lastExportedFriday = "";
-    try {
-      const saved = localStorage.getItem("xs_weekly_export");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        lastExportedFriday = parsed.fridayKey || "";
-      }
-    } catch (e) { console.error("读取周报导出记录失败", e); }
-
-    const thisFriday = new Date(this.getFridayStart(Date.now()));
-    const thisFridayKey = thisFriday.toISOString().slice(0, 10); // "2026-07-17"
-    if (lastExportedFriday === thisFridayKey) {
-      banner.style.display = "none";
-    } else {
-      banner.style.display = "block";
-    }
+    const banner = document.getElementById("export-banner");
+    if (banner) banner.style.display = "flex";
   },
 
-  dismissWeeklyReminder() {
-    const thisFriday = new Date(this.getFridayStart(Date.now()));
-    const fridayKey = thisFriday.toISOString().slice(0, 10);
-    try {
-      localStorage.setItem("xs_weekly_export", JSON.stringify({ fridayKey }));
-    } catch (e) { console.error("保存周报导出记录失败", e); }
-    const banner = document.getElementById("weekly-export-banner");
-    if (banner) banner.style.display = "none";
-  },
+  // dismissWeeklyReminder 已不再使用（导出栏常驻），保留为空壳以防旧代码引用
+  dismissWeeklyReminder() {},
 
   formatWeeklyReport() {
     const lines = [];
@@ -1860,6 +1832,131 @@ ${historySummary}`;
     // 记录导出时间，隐藏提醒
     this.dismissWeeklyReminder();
     this.showToast("周报已导出 🌱");
+  },
+
+  // ========== 一键全部导出 ==========
+  exportAllData() {
+    const text = this.formatAllReport();
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const filename = `酥梨全部导出_${dateStr}.txt`;
+    this.downloadFile(filename, text);
+    this.showToast("全部导出完成 🌱");
+  },
+
+  formatAllReport() {
+    const lines = [];
+    const now = new Date().toLocaleString("zh-CN");
+
+    lines.push(`# 小树觉察室 全部记录`);
+    lines.push(`生成时间：${now}`);
+    lines.push(`---`);
+    lines.push("");
+
+    // 一、对话记录
+    lines.push("## 一、对话记录");
+    const userMessages = this.currentChat.filter(m => m.role === "user");
+    if (userMessages.length === 0) {
+      lines.push("（暂无对话记录）");
+    } else {
+      userMessages.slice().reverse().forEach((m, i) => {
+        const t = new Date(m.time).toLocaleString("zh-CN");
+        lines.push(`${i + 1}. ${t}`);
+        lines.push(`   ${m.content}`);
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 二、觉察此刻
+    lines.push("## 二、觉察此刻");
+    const guided = this.diaries.filter(d => d.source === "guided" && (d.category || d.steps?.category) !== "happy");
+    if (guided.length === 0) {
+      lines.push("（暂无觉察此刻）");
+    } else {
+      [...guided].reverse().forEach((d) => {
+        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        if (d.steps) {
+          lines.push(`情绪事件：${d.steps.event || "未记录"}`);
+          lines.push(`身心感受：${d.steps.feeling || "未记录"}`);
+          lines.push(`防御方式：${d.steps.defense || "未记录"}`);
+          lines.push(`延展模型：${d.steps.extend || "未记录"}`);
+        }
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 三、反向选择
+    lines.push("## 三、反向选择");
+    if (this.reverseDiaries.length === 0) {
+      lines.push("（暂无反向选择）");
+    } else {
+      [...this.reverseDiaries].reverse().forEach((d) => {
+        lines.push(`《${d.title || "未命名"}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        lines.push(`触发(${d.triggerIntensity || "-"}): ${d.trigger || ""}`);
+        lines.push(`旧程序: ${d.oldProgram || ""}`);
+        lines.push(`反向选择: ${d.newChoice || ""}`);
+        lines.push(`结果(${d.resultIntensity || "-"}): ${d.result || ""}`);
+        lines.push(`情绪变化: ${d.triggerIntensity || "-"} → ${d.resultIntensity || "-"}`);
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 四、日日记录
+    lines.push("## 四、日日记录");
+    const moods = this.moodDiaries.filter(d => d.source === "my");
+    if (moods.length === 0) {
+      lines.push("（暂无日日记录）");
+    } else {
+      [...moods].reverse().forEach((d) => {
+        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        lines.push(`颜色区：${d.colorZoneNames || "未选择"}`);
+        lines.push(`情绪：${(d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录")}`);
+        lines.push(`今天的日子：${d.today || "未记录"}`);
+        lines.push("");
+      });
+    }
+    lines.push("");
+
+    // 五、识人观察
+    lines.push("## 五、识人观察");
+    const peopleWithObs = this.people.filter(p => p.observations && p.observations.length > 0);
+    if (peopleWithObs.length === 0) {
+      lines.push("（暂无识人观察）");
+    } else {
+      peopleWithObs.forEach((p) => {
+        lines.push(`角色：${p.name}（${p.relation}）`);
+        [...p.observations].reverse().forEach((o) => {
+          const t = new Date(o.createdAt).toLocaleString("zh-CN");
+          lines.push(`[${o.type}] ${t}`);
+          lines.push(o.content || "");
+          lines.push("");
+        });
+      });
+    }
+    lines.push("");
+
+    // 六、快乐治愈小分队
+    lines.push("## 六、快乐治愈小分队");
+    const happyDiaries = this.diaries.filter(d => (d.category || d.steps?.category) === "happy");
+    if (happyDiaries.length === 0) {
+      lines.push("（暂无快乐治愈小分队）");
+    } else {
+      [...happyDiaries].reverse().forEach((d) => {
+        lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+        if (d.aiSummary) lines.push(`✨ ${d.aiSummary}`);
+        if (d.people && d.people.length > 0) lines.push(`👥 一起的人：${d.people.join("、")}`);
+        const ems = d.steps?.emotions || [];
+        if (ems.length > 0) lines.push(`情绪词：${ems.join("、")}`);
+        lines.push("");
+      });
+    }
+    lines.push("");
+    lines.push("---");
+    lines.push("全部导出结束");
+
+    return lines.join("\n");
   },
 
   downloadFile(filename, text) {
@@ -2886,12 +2983,12 @@ ${obsText}${ctInfo}
       });
     }
 
-    // 周报导出提醒
+    // 导出按钮
     const weeklyExportBtn = document.getElementById("weekly-export-btn");
     if (weeklyExportBtn) weeklyExportBtn.addEventListener("click", () => this.exportWeeklyReport());
 
-    const weeklyExportDismiss = document.getElementById("weekly-export-dismiss");
-    if (weeklyExportDismiss) weeklyExportDismiss.addEventListener("click", () => this.dismissWeeklyReminder());
+    const exportAllBtn = document.getElementById("export-all-btn");
+    if (exportAllBtn) exportAllBtn.addEventListener("click", () => this.exportAllData());
 
     // ===== 情绪日记事件 =====
     const moodPrevBtn = document.getElementById("mood-prev-btn");
