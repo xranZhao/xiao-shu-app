@@ -821,7 +821,7 @@ ${historySummary}`;
           { role: "user", content: prompt },
         ],
         temperature: 0.3,
-        max_tokens: 500,
+        max_tokens: 200,
       }),
     });
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
