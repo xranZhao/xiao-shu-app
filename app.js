@@ -286,13 +286,13 @@ const App = {
     document.getElementById("step-question").textContent = this.getGuidedStepQuestion(step);
     document.getElementById("step-input").value = this.guided.steps[Object.keys(this.guided.steps)[step - 1]] || "";
 
-    // 「快乐瞬间」toggle 仅在第 2 步显示，位于 step-actions 中间
+    // 「快乐」toggle 仅在第 2 步显示，位于 step-actions 中间
     const happyBtn = document.getElementById("guided-happy-btn");
     if (happyBtn) {
       happyBtn.style.display = step === 2 ? "" : "none";
       if (step === 2) {
         happyBtn.classList.toggle("active", !!this.guided.steps.isHappy);
-        happyBtn.textContent = this.guided.steps.isHappy ? "✨ 快乐瞬间 ✓" : "✨ 快乐瞬间";
+        happyBtn.textContent = this.guided.steps.isHappy ? "快乐 ✓" : "快乐";
       }
     }
 
@@ -330,7 +330,7 @@ const App = {
     const btn = document.getElementById("guided-happy-btn");
     if (btn) {
       btn.classList.toggle("active", !!this.guided.steps.isHappy);
-      btn.textContent = this.guided.steps.isHappy ? "✨ 快乐瞬间 ✓" : "✨ 快乐瞬间";
+      btn.textContent = this.guided.steps.isHappy ? "快乐 ✓" : "快乐";
     }
   },
 
@@ -1862,6 +1862,18 @@ ${historySummary}`;
   },
 
   // ========== 快乐治愈小分队一次性导出/上传 ==========
+  clearAllHappyDiaries() {
+    const happyDiaries = this.getHappyDiaries();
+    if (happyDiaries.length === 0) {
+      this.showToast("没有快乐治愈小分队可清空");
+      return;
+    }
+    if (!confirm(`确定清空全部 ${happyDiaries.length} 条快乐治愈小分队吗？此操作不可恢复。\n\n建议先点「导出」备份一份。`)) return;
+    this.diaries = this.diaries.filter(d => (d.category || d.steps?.category) !== "happy");
+    this.saveData();
+    this.showToast(`已清空 ${happyDiaries.length} 条快乐治愈小分队 🗑`);
+  },
+
   exportHappyDiariesForReorganize() {
     const happyDiaries = this.getHappyDiaries();
     if (happyDiaries.length === 0) {
@@ -2933,6 +2945,8 @@ ${obsText}${ctInfo}
     if (reorganizeExportBtn) reorganizeExportBtn.addEventListener("click", () => this.exportHappyDiariesForReorganize());
     const reorganizeUploadBtn = document.getElementById("reorganize-upload-btn");
     if (reorganizeUploadBtn) reorganizeUploadBtn.addEventListener("click", () => this.triggerHappyReorganizeUpload());
+    const reorganizeClearBtn = document.getElementById("reorganize-clear-btn");
+    if (reorganizeClearBtn) reorganizeClearBtn.addEventListener("click", () => this.clearAllHappyDiaries());
 
     // ===== 闪光页事件 =====
     const sparkleNext = document.getElementById("sparkle-next");
