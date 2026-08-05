@@ -1267,12 +1267,12 @@ ${historySummary}`;
 
     const date = new Date().toISOString().slice(0, 10);
     const emotionStr = emotion || "未记录";
-    const title = `${date}-${emotionStr}`;
+    const localTitle = this.generateMyDiaryTitle(emotionStr, today);
     const content = `今天的情绪：${emotionStr}\n\n聊聊今天的日子：${today || "未记录"}`;
 
     const diary = {
       id: Date.now(),
-      title,
+      title: localTitle,
       date,
       source: "my",
       emotions: emotions,
@@ -1289,8 +1289,59 @@ ${historySummary}`;
     if (emotionInput) emotionInput.value = "";
     if (todayInput) todayInput.value = "";
 
+    // 后台静默用 AI 优化标题
+    if (CONFIG.API_KEY && today) {
+      this.generateAIMyDiaryTitle(emotionStr, today).then(aiTitle => {
+        diary.title = aiTitle; this.saveData(); this.renderMoodDiaries();
+      }).catch(() => {});
+    }
+
     this.renderMoodDiaries();
     this.showToast("日日记录已保存，进入落地呼吸 🌙");
+  },
+
+  generateMyDiaryTitle(emotion, today) {
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    let key = (today || "").replace(/\s+/g, "").slice(0, 8);
+    if (key.length < 2) key = "今日";
+    const em = emotion || "心情";
+    return `${date}-${key}-${em}`;
+  },
+
+  async generateAIMyDiaryTitle(emotion, today) {
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const prompt = `请根据用户以下日日记录，直接总结一个标题。
+
+要求：
+1. 标题格式：YYYYMMDD-事件总结-情绪
+2. 时间使用今天的日期：${date}
+3. 事件总结：用10个汉字以内概括"今天的日子"的核心内容，不是截取原文前10个字，而是提炼关键词
+4. 情绪：用1-3个字概括情绪
+5. 只输出标题，不要任何其他内容
+
+情绪：${emotion}
+今天的日子：${today}`;
+
+    const response = await fetch(CONFIG.BASE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages: [
+          { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.5,
+        max_tokens: 200,
+      }),
+    });
+    if (!response.ok) throw new Error(`API error ${response.status}`);
+    const data = await response.json();
+    let title = data.choices[0].message.content.trim();
+    title = title.replace(/^["'\`]+|["'\`]+$/g, "").replace(/\`\`\`/g, "").trim();
+    const match = title.match(/(\d{8}-.+?-.+?)(?:\n|$)/) || title.match(/(\d{8}-.+)/);
+    if (match) return match[1].trim();
+    return `${date}-${(today || "").replace(/\s+/g, "").slice(0, 8) || "今日"}-${emotion}`;
   },
 
   // ========== 放松流程：10 秒镇定 + 催眠音频 ==========
