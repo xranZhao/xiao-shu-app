@@ -286,16 +286,13 @@ const App = {
     document.getElementById("step-question").textContent = this.getGuidedStepQuestion(step);
     document.getElementById("step-input").value = this.guided.steps[Object.keys(this.guided.steps)[step - 1]] || "";
 
-    // 「快乐瞬间」toggle 仅在第 2 步显示
-    const happyToggle = document.getElementById("guided-happy-toggle");
-    if (happyToggle) {
-      happyToggle.style.display = step === 2 ? "flex" : "none";
+    // 「快乐瞬间」toggle 仅在第 2 步显示，位于 step-actions 中间
+    const happyBtn = document.getElementById("guided-happy-btn");
+    if (happyBtn) {
+      happyBtn.style.display = step === 2 ? "" : "none";
       if (step === 2) {
-        const btn = document.getElementById("guided-happy-btn");
-        if (btn) {
-          btn.classList.toggle("active", !!this.guided.steps.isHappy);
-          btn.textContent = this.guided.steps.isHappy ? "✨ 快乐瞬间 ✓" : "✨ 快乐瞬间";
-        }
+        happyBtn.classList.toggle("active", !!this.guided.steps.isHappy);
+        happyBtn.textContent = this.guided.steps.isHappy ? "✨ 快乐瞬间 ✓" : "✨ 快乐瞬间";
       }
     }
 
