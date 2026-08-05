@@ -478,6 +478,7 @@ html, body {
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .happy-toggle-btn.active {
