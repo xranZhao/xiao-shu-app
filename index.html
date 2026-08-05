@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=31">
+  <link rel="stylesheet" href="style.css?v=32">
   <script>
     (function () {
       function setVh() {
@@ -82,37 +82,10 @@
             </div>
           </div>
           <textarea id="step-input" class="step-input" placeholder="在这里写下你的回答..." rows="5"></textarea>
-          <div class="mood-wheel" id="guided-mood-wheel" style="display:none;">
-            <div class="mood-zone" data-zone="orange">
-              <span class="zone-dot" style="background:#f39c12;"></span>
-              <span class="zone-name">橙色区</span>
-            </div>
-            <div class="mood-zone" data-zone="green">
-              <span class="zone-dot" style="background:#27ae60;"></span>
-              <span class="zone-name">绿色区</span>
-            </div>
-            <div class="mood-zone" data-zone="red">
-              <span class="zone-dot" style="background:#e74c3c;"></span>
-              <span class="zone-name">红色区</span>
-            </div>
-            <div class="mood-zone" data-zone="grey">
-              <span class="zone-dot" style="background:#7f8c8d;"></span>
-              <span class="zone-name">灰色区</span>
-            </div>
-            <div class="mood-zone" data-zone="blue">
-              <span class="zone-dot" style="background:#3498db;"></span>
-              <span class="zone-name">蓝色区</span>
-            </div>
-            <div class="mood-zone" data-zone="purple">
-              <span class="zone-dot" style="background:#9b59b6;"></span>
-              <span class="zone-name">紫色区</span>
-            </div>
-            <div class="mood-zone" data-zone="brown">
-              <span class="zone-dot" style="background:#8b5a2b;"></span>
-              <span class="zone-name">棕色区</span>
-            </div>
+          <div class="guided-happy-toggle" id="guided-happy-toggle" style="display:none;">
+            <button id="guided-happy-btn" class="happy-toggle-btn">✨ 快乐瞬间</button>
+            <span class="happy-toggle-hint">选了会存为快乐治愈小分队，不选则存为觉察日记</span>
           </div>
-          <div class="emotion-tags" id="guided-emotion-tags" style="display:none;"></div>
           <div class="step-actions">
             <button id="step-prev-btn" class="btn-step-prev">← 上一步</button>
             <button id="step-next-btn" class="btn-step-next">下一步 →</button>
@@ -162,40 +135,9 @@
                 <span class="step-number">1</span>
                 <span class="step-name">感受今天一天的情绪</span>
               </div>
-              <p class="step-guide">不必解释，只去感受。选颜色区，再选具体情绪词。可以多选。</p>
-              <div class="mood-wheel" id="my-diary-mood-wheel">
-                <div class="mood-zone" data-zone="red">
-                  <span class="zone-dot" style="background:#e74c3c;"></span>
-                  <span class="zone-name">红色区</span>
-                </div>
-                <div class="mood-zone" data-zone="orange">
-                  <span class="zone-dot" style="background:#f39c12;"></span>
-                  <span class="zone-name">橙色区</span>
-                </div>
-                <div class="mood-zone" data-zone="green">
-                  <span class="zone-dot" style="background:#27ae60;"></span>
-                  <span class="zone-name">绿色区</span>
-                </div>
-                <div class="mood-zone" data-zone="grey">
-                  <span class="zone-dot" style="background:#7f8c8d;"></span>
-                  <span class="zone-name">灰色区</span>
-                </div>
-                <div class="mood-zone" data-zone="blue">
-                  <span class="zone-dot" style="background:#3498db;"></span>
-                  <span class="zone-name">蓝色区</span>
-                </div>
-                <div class="mood-zone" data-zone="purple">
-                  <span class="zone-dot" style="background:#9b59b6;"></span>
-                  <span class="zone-name">紫色区</span>
-                </div>
-                <div class="mood-zone" data-zone="brown">
-                  <span class="zone-dot" style="background:#8b5a2b;"></span>
-                  <span class="zone-name">棕色区</span>
-                </div>
-              </div>
-              <div class="emotion-tags" id="my-diary-emotion-tags"></div>
+              <p class="step-guide">直接写下今天的情绪词，用你自己的话描述就好。</p>
               <div class="my-diary-input-row" style="margin-top:12px;">
-                <input type="text" id="my-emotion" placeholder="或手动输入今天的情绪">
+                <input type="text" id="my-emotion" placeholder="写下今天的情绪，比如：开心、有点烦、累了...">
               </div>
             </div>
 
@@ -375,6 +317,18 @@
         <p id="import-status" style="font-size:12px;color:var(--text-light);margin-top:8px;display:none;"></p>
       </div>
 
+      <!-- 整理快乐治愈小分队（一次性功能） -->
+      <div id="reorganize-section" class="settings-card">
+        <h3>✨ 整理快乐治愈小分队</h3>
+        <p class="settings-help">一次性功能：导出全部快乐治愈小分队 → 在外面手动编辑整理 → 上传回来。上传后此入口消失。</p>
+        <div id="reorganize-btns">
+          <button id="reorganize-export-btn" class="btn-primary">📤 导出全部快乐瞬间</button>
+          <input type="file" id="reorganize-upload-input" accept=".txt,.md" style="display:none;">
+          <button id="reorganize-upload-btn" class="btn-primary" style="background:#8e44ad;">📥 上传整理好的文件</button>
+        </div>
+        <p id="reorganize-status" style="font-size:12px;color:var(--text-light);margin-top:8px;display:none;"></p>
+      </div>
+
       <div class="settings-card">
         <h3>🔑 API 设置</h3>
         <p class="settings-help">只需粘贴 API Key，点「保存设置」即可。下面两项一般不用改。</p>
@@ -459,7 +413,6 @@
               <span id="sparkle-card-date" class="sparkle-card-date"></span>
             </div>
             <div id="sparkle-card-quote" class="sparkle-card-quote"></div>
-            <div id="sparkle-card-people" class="sparkle-card-people"></div>
             <button id="sparkle-view-detail" class="sparkle-view-btn">查看原文</button>
           </div>
         </div>
@@ -467,7 +420,6 @@
         <div class="sparkle-actions">
           <button id="sparkle-next" class="sparkle-btn-primary">换一张</button>
           <button id="sparkle-browse-all-link" class="sparkle-btn-text">📋 浏览全部</button>
-          <button id="sparkle-filter-toggle" class="sparkle-btn-text">按人看</button>
         </div>
       </div>
 
@@ -541,9 +493,9 @@
     </div>
   </div>
 
-  <script src="config.js?v=22"></script>
-  <script src="xiaoshu-prompt.js?v=22"></script>
-  <script src="app.js?v=33"></script>
+  <script src="config.js?v=23"></script>
+  <script src="xiaoshu-prompt.js?v=23"></script>
+  <script src="app.js?v=34"></script>
 </body>
 </html>
 

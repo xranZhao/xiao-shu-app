@@ -10,7 +10,7 @@ const App = {
   // 引导式觉察状态
   guided: {
     currentStep: 1,
-    steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null },
+    steps: { event: "", feeling: "", defense: "", extend: "", isHappy: false, emotions: [], category: null },
   },
   // 识人板块
   people: [],
@@ -36,11 +36,7 @@ const App = {
   // 快乐治愈小分队：正向情绪颜色区
   HAPPY_ZONES: ["orange", "green"],
 
-  // 日日记录当前选中颜色区（支持多选）
-  myDiaryZones: [],
-  // 日日记录当前选中情绪词（支持多选）
-  myDiaryEmotions: [],
-  // 日日记录分步状态
+  // 日日记录数据（旧字段保留但不再使用颜色区/情绪选择）
   moodStep: {
     current: 1,
     total: 3,
@@ -290,15 +286,16 @@ const App = {
     document.getElementById("step-question").textContent = this.getGuidedStepQuestion(step);
     document.getElementById("step-input").value = this.guided.steps[Object.keys(this.guided.steps)[step - 1]] || "";
 
-    // 颜色区仅在第 2 步显示
-    const moodWheel = document.getElementById("guided-mood-wheel");
-    const emotionTags = document.getElementById("guided-emotion-tags");
-    if (moodWheel) {
-      moodWheel.style.display = step === 2 ? "grid" : "none";
-      if (emotionTags) emotionTags.style.display = step === 2 ? "flex" : "none";
+    // 「快乐瞬间」toggle 仅在第 2 步显示
+    const happyToggle = document.getElementById("guided-happy-toggle");
+    if (happyToggle) {
+      happyToggle.style.display = step === 2 ? "flex" : "none";
       if (step === 2) {
-        this.renderGuidedZones();
-        this.renderGuidedEmotionTags();
+        const btn = document.getElementById("guided-happy-btn");
+        if (btn) {
+          btn.classList.toggle("active", !!this.guided.steps.isHappy);
+          btn.textContent = this.guided.steps.isHappy ? "✨ 快乐瞬间 ✓" : "✨ 快乐瞬间";
+        }
       }
     }
 
@@ -317,44 +314,27 @@ const App = {
 
   getGuidedStepName(step) {
     if (step === 3) {
-      return this.guided.steps.category === "happy" ? "感受方式" : "防御方式";
+      return this.guided.steps.isHappy ? "感受方式" : "防御方式";
     }
     return this.GUIDED_STEP_NAMES[step];
   },
 
   getGuidedStepQuestion(step) {
     if (step === 3) {
-      return this.guided.steps.category === "happy"
+      return this.guided.steps.isHappy
         ? "试着描述这一刻：你看到了什么、听到了什么、闻到了什么？把它放慢，像重放一段短片，一点点讲出来。这份快乐/平静在身体里多待一会儿。"
         : this.GUIDED_QUESTIONS[3];
     }
     return this.GUIDED_QUESTIONS[step];
   },
 
-  renderGuidedZones() {
-    const zones = this.guided.steps.zones || [];
-    document.querySelectorAll("#guided-mood-wheel .mood-zone").forEach((el) => {
-      el.classList.toggle("selected", zones.includes(el.dataset.zone));
-    });
-  },
-
-  renderGuidedEmotionTags() {
-    const container = document.getElementById("guided-emotion-tags");
-    if (!container) return;
-    const selectedZones = this.guided.steps.zones || [];
-    const selectedEmotions = this.guided.steps.emotions || [];
-
-    if (selectedZones.length === 0) {
-      container.innerHTML = "";
-      return;
+  toggleGuidedHappy() {
+    this.guided.steps.isHappy = !this.guided.steps.isHappy;
+    const btn = document.getElementById("guided-happy-btn");
+    if (btn) {
+      btn.classList.toggle("active", !!this.guided.steps.isHappy);
+      btn.textContent = this.guided.steps.isHappy ? "✨ 快乐瞬间 ✓" : "✨ 快乐瞬间";
     }
-
-    const emotions = selectedZones.flatMap((zone) => this.emotionZones[zone]?.emotions || []);
-    const uniqueEmotions = [...new Set(emotions)];
-
-    container.innerHTML = uniqueEmotions
-      .map((e) => `<span class="emotion-tag ${selectedEmotions.includes(e) ? "selected" : ""}" data-emotion="${e}">${e}</span>`)
-      .join("");
   },
 
   classifyZones(zones) {
@@ -380,18 +360,11 @@ const App = {
     const value = document.getElementById("step-input").value.trim();
     this.guided.steps[key] = value;
 
-    // 第 2 步保存颜色区、情绪词并自动分类
+    // 第 2 步自动分类：根据「快乐瞬间」toggle 决定
     if (this.guided.currentStep === 2) {
-      const selectedZones = Array.from(document.querySelectorAll("#guided-mood-wheel .mood-zone.selected"))
-        .map((el) => el.dataset.zone);
-      const selectedEmotions = Array.from(document.querySelectorAll("#guided-emotion-tags .emotion-tag.selected"))
-        .map((el) => el.dataset.emotion);
-      this.guided.steps.zones = selectedZones;
-      this.guided.steps.emotions = selectedEmotions;
-      this.guided.steps.category = this.classifyZones(selectedZones);
-      if (selectedZones.length === 0) {
-        this.showToast("未选颜色，已按情绪觉察流程继续");
-      }
+      this.guided.steps.category = this.guided.steps.isHappy ? "happy" : "aware";
+      this.guided.steps.emotions = this.guided.steps.isHappy ? ["快乐瞬间"] : [];
+      this.guided.steps.zones = [];
     }
 
     if (this.guided.currentStep < 4) {
@@ -412,23 +385,23 @@ const App = {
     summary.style.display = "flex";
 
     // 构建汇总内容
-    const defenseLabel = steps.category === "happy" ? "感受方式" : "防御方式";
+    const defenseLabel = steps.isHappy ? "感受方式" : "防御方式";
+    const category = steps.isHappy ? "happy" : "aware";
     const labels = { event: "情绪事件", feeling: "身心感受", defense: defenseLabel, extend: "延展模型" };
     let html = "";
     for (const [key, label] of Object.entries(labels)) {
       html += `<span class="s-label">${label}</span><span class="s-text">${this.escapeHtml(steps[key])}</span>`;
     }
-    // 已选情绪词
-    const emotions = steps.emotions || [];
-    if (emotions.length > 0) {
-      html += `<span class="s-label">情绪词</span><span class="s-text">${this.escapeHtml(emotions.join("、"))}</span>`;
+    // 快乐瞬间标记
+    if (steps.isHappy) {
+      html += `<span class="s-label">分类</span><span class="s-text">✨ 快乐治愈小分队</span>`;
     }
     document.getElementById("summary-body").innerHTML = html;
 
     // 汇总头部显示分类标签
     const summaryHeader = document.querySelector(".summary-header");
     if (summaryHeader) {
-      summaryHeader.textContent = `✅ 觉察日记已完成 · ${this.getCategoryLabel(steps.category)}`;
+      summaryHeader.textContent = `✅ 觉察日记已完成 · ${this.getCategoryLabel(category)}`;
     }
 
     // 生成标题
@@ -509,7 +482,7 @@ const App = {
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const event = steps.event || "";
     const feeling = steps.feeling || "";
-    const isHappy = steps.category === "happy";
+    const isHappy = steps.isHappy || steps.category === "happy";
 
     // 从情绪事件中提取关键词（前2-6个字符）
     let eventKey = event.replace(/\s+/g, "").slice(0, 8);
@@ -667,7 +640,7 @@ ${today} 的记录：
 
 【情绪事件】${steps.event}
 【身心感受】${steps.feeling}
-【${steps.category === "happy" ? "感受方式" : "防御方式"}】${steps.defense}
+【${steps.isHappy ? "感受方式" : "防御方式"}】${steps.defense}
 【延展模型】${steps.extend}
 ${historySummary}`;
 
@@ -698,18 +671,13 @@ ${historySummary}`;
     // 从 innerHTML 里获取真实反馈（处理 markdown 渲染后的内容）
     const fbEl = document.getElementById("summary-feedback");
     const feedback = fbEl ? fbEl.innerText || fbEl.textContent : "";
-    const content = `【情绪事件】\n${steps.event}\n\n【身心感受】\n${steps.feeling}\n\n【${steps.category === "happy" ? "感受方式" : "防御方式"}】\n${steps.defense}\n\n【延展模型】\n${steps.extend}`;
+    const content = `【情绪事件】\n${steps.event}\n\n【身心感受】\n${steps.feeling}\n\n【${steps.isHappy ? "感受方式" : "防御方式"}】\n${steps.defense}\n\n【延展模型】\n${steps.extend}`;
 
     let aiSummary = "";
-    let people = [];
-    if (steps.category === "happy") {
+    if (steps.isHappy) {
       try {
         this.showToast("✨ 正在为闪光瞬间生成温暖金句…");
-        const excluded = this.getExcludedSparklePeople();
-        [aiSummary, people] = await Promise.all([
-          this.generateHappySummary(steps),
-          this.extractHappyPeople(steps, excluded),
-        ]);
+        aiSummary = await this.generateHappySummary(steps);
       } catch (err) {
         console.error("生成闪光金句失败", err);
       }
@@ -720,12 +688,11 @@ ${historySummary}`;
       title: title || this.generateDiaryTitle(steps),
       date: new Date().toISOString().slice(0, 10),
       source: "guided",
-      category: steps.category,
-      steps: { ...steps },
+      category: steps.isHappy ? "happy" : "aware",
+      steps: { ...steps, category: steps.isHappy ? "happy" : "aware", emotions: steps.isHappy ? ["快乐瞬间"] : [] },
       content,
       feedback,
       aiSummary,
-      people,
       primaryEmotion: this.extractPrimaryEmotion(steps.feeling),
       createdAt: Date.now(),
     };
@@ -734,7 +701,7 @@ ${historySummary}`;
     this.saveData();
 
     // 重置引导状态
-    this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null } };
+    this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", isHappy: false, emotions: [], category: null } };
     this.clearGuidedDraft();
 
     // 重新显示引导卡片，隐藏汇总
@@ -746,28 +713,28 @@ ${historySummary}`;
   },
 
   async generateHappySummary(steps) {
-    const prompt = `请根据下面这篇快乐/治愈日记，写一句温暖、诗意、让人想停下来的金句。
+    const prompt = `请根据下面这篇快乐/治愈日记，用第一人称「我」写一句自然、真实的话来总结这个瞬间。
 
 要求：
 - 1-2 句话，30-80 字。
-- 不罗列事件，不分析情绪。
-- 用第一人称「我」来写，就像日记主人自己在回忆、在感慨。
-- 抓取一个具体细节放大（一个动作、一句话、一个场景）。
-- 语气温暖、轻、有停顿感，像随手翻开一张鼓励卡。
+- 不罗列事件，不分析情绪，不说教，不升华，不堆形容词。
+- 像你自己事后回忆这个瞬间时会说的话——自然、具体、有细节。
+- 抓取一个具体细节（一个动作、一句话、一个场景）来写。
+- 语气轻一点，像跟朋友随口聊起，别刻意煽情。
 
 错误示例（不要这样写）：
 - "你托腮望月，风拂过你的发梢" → 第二人称，不对
-- "那天你骑车经过江边" → 第二人称，不对
+- "我托腮望月，风拂过发梢" → 太矫情，像文艺作文
+- "这个世界真美好，因为有你陪在我身边" → 太空洞，没有具体细节
 
 正确示例：
-- "我托腮望月，风拂过发梢"
-- "我骑车经过江边，江水在身后，清风在耳边"
+- "今天骑车经过江边，江水声哗哗的，风吹在脸上有点凉，但很舒服"
+- "妈妈炒菜的时候我站在旁边，她说这个菜是我小时候最爱吃的"
 
 【情绪事件】${steps.event || ""}
 【身心感受】${steps.feeling || ""}
 【感受方式】${steps.defense || ""}
 【延展模型】${steps.extend || ""}
-【情绪词】${(steps.emotions || []).join("、")}
 
 只输出金句，不要任何解释。`;
 
@@ -787,53 +754,6 @@ ${historySummary}`;
     if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
     const data = await response.json();
     return data.choices[0].message.content.trim();
-  },
-
-  async extractHappyPeople(steps, excludedNames = []) {
-    const exclusionHint = excludedNames.length > 0
-      ? `\n7. 不要提取以下用户已删除/合并的人物：${excludedNames.join("、")}。如果文中只有这些名字，输出空数组 []。`
-      : "";
-
-    const prompt = `请从下面这篇快乐/治愈日记中，提取所有出现的人物。
-
-要求：
-1. 只输出人名、称呼或亲属称谓，包括但不限于：妈妈、爸爸、老公、老婆、男朋友、女朋友、他、她、孩子、朋友、同事、闺蜜、兄弟、希里、狸克、至夏、陈前、寒冰、十月 等。
-2. 特别注意中文语境中的亲属称呼（妈妈、爸爸、哥哥、姐姐、弟弟、妹妹、舅舅、舅妈、叔叔、阿姨、姑妈、伯父等）。
-3. 特别注意文中直接提到的朋友名字或昵称。
-4. 如果文中明确出现了人物，哪怕只提了一次，也要提取。
-5. 如果文中没有提到任何人，输出空数组 []。
-6. 只输出 JSON 数组，不要任何解释。${exclusionHint}
-
-【情绪事件】${steps.event || ""}
-【身心感受】${steps.feeling || ""}
-【感受方式】${steps.defense || ""}
-【延展模型】${steps.extend || ""}
-
-输出格式示例：["妈妈", "爸爸", "陈前"] 或 ["希里", "狸克"] 或 []`;
-
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          { role: "system", content: "你是一个只输出 JSON 数组的助手。" },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 200,
-      }),
-    });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    let result = data.choices[0].message.content.trim();
-    result = result.replace(/^```json\s*|\s*```$/g, "").trim();
-    try {
-      const parsed = JSON.parse(result);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      return [];
-    }
   },
 
   // ========== 反向选择 ==========
@@ -1224,8 +1144,9 @@ ${historySummary}`;
     document.querySelectorAll(".diary-mode-content").forEach(c => c.classList.remove("active"));
     document.getElementById("my-diary").classList.add("active");
     this.resetMoodStep();
-    if (zone) this.toggleMyDiaryZone(zone);
   },
+
+  // toggleMyDiaryZone / renderMyDiaryEmotionTags / myDiaryZones / myDiaryEmotions 已移除（颜色区+情绪选择已删除）
 
   resetMoodStep() {
     this.moodStep.current = 1;
@@ -1234,36 +1155,7 @@ ${historySummary}`;
       this.moodStep.landingTimer = null;
     }
     this.moodStep.landingSeconds = 20;
-    this.myDiaryZones = [];
-    this.myDiaryEmotions = [];
     this.renderMoodStep();
-  },
-
-  toggleMyDiaryZone(zone) {
-    const idx = this.myDiaryZones.indexOf(zone);
-    if (idx >= 0) {
-      this.myDiaryZones.splice(idx, 1);
-    } else {
-      this.myDiaryZones.push(zone);
-    }
-    document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(el => {
-      el.classList.toggle("selected", this.myDiaryZones.includes(el.dataset.zone));
-    });
-    this.renderMyDiaryEmotionTags();
-  },
-
-  renderMyDiaryEmotionTags() {
-    const container = document.getElementById("my-diary-emotion-tags");
-    if (!container) return;
-    if (this.myDiaryZones.length === 0) {
-      container.innerHTML = "";
-      return;
-    }
-    const emotions = this.myDiaryZones.flatMap(z => this.emotionZones[z]?.emotions || []);
-    const uniqueEmotions = [...new Set(emotions)];
-    container.innerHTML = uniqueEmotions.map(e =>
-      `<span class="emotion-tag ${this.myDiaryEmotions.includes(e) ? 'selected' : ''}" data-emotion="${e}">${e}</span>`
-    ).join("");
   },
 
   renderMoodStep() {
@@ -1369,29 +1261,23 @@ ${historySummary}`;
     const emotion = (emotionInput?.value || "").trim();
     const today = (todayInput?.value || "").trim();
 
-    const zones = this.myDiaryZones.length > 0 ? [...this.myDiaryZones] : [];
-    const emotions = this.myDiaryEmotions.length > 0 ? [...this.myDiaryEmotions] : [];
-    // 手动输入的情绪也加入
-    if (emotion && !emotions.includes(emotion)) emotions.push(emotion);
+    const emotions = emotion ? [emotion] : [];
 
-    if (emotions.length === 0 && !today) {
-      this.showToast("请至少选择一个情绪或写点今天的日子");
+    if (!emotion && !today) {
+      this.showToast("请至少写下今天的情绪或聊点日子");
       return;
     }
 
     const date = new Date().toISOString().slice(0, 10);
-    const zoneNames = zones.length > 0 ? zones.map(z => this.emotionZones[z].name).join("、") : "未选择";
-    const emotionStr = emotions.join("、") || "未记录";
-    const title = `${date}-${emotionStr}-${zoneNames}`;
-    const content = `情绪颜色区：${zoneNames}\n今天最强烈的情绪：${emotionStr}\n\n聊聊今天的日子：${today || "未记录"}`;
+    const emotionStr = emotion || "未记录";
+    const title = `${date}-${emotionStr}`;
+    const content = `今天的情绪：${emotionStr}\n\n聊聊今天的日子：${today || "未记录"}`;
 
     const diary = {
       id: Date.now(),
       title,
       date,
       source: "my",
-      colorZones: zones,
-      colorZoneNames: zoneNames,
       emotions: emotions,
       today,
       content,
@@ -1405,10 +1291,6 @@ ${historySummary}`;
     // 清空输入
     if (emotionInput) emotionInput.value = "";
     if (todayInput) todayInput.value = "";
-    this.myDiaryZones = [];
-    this.myDiaryEmotions = [];
-    document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(el => el.classList.remove("selected"));
-    if (document.getElementById("my-diary-emotion-tags")) document.getElementById("my-diary-emotion-tags").innerHTML = "";
 
     this.renderMoodDiaries();
     this.showToast("日日记录已保存，进入落地呼吸 🌙");
@@ -1602,7 +1484,6 @@ ${historySummary}`;
         </div>
         <div class="diary-body">
           <div class="diary-my-mini">
-            <div><span class="s-label">颜色区</span> ${this.escapeHtml(d.colorZoneNames || "未选择")}</div>
             <div><span class="s-label">情绪</span> ${this.escapeHtml((d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录"))}</div>
             <div><span class="s-label">今天的日子</span> ${this.escapeHtml(d.today || d.action || "未记录")}</div>
           </div>
@@ -1650,7 +1531,7 @@ ${historySummary}`;
     if (!d) return;
     const filename = (d.title || "日日记录").replace(/[\\/:*?"<>|]/g, "_") + ".txt";
     let text = `标题：${d.title}\n日期：${d.date}\n类型：日日记录\n\n`;
-    text += `颜色区：${d.colorZoneNames || "未选择"}\n情绪：${(d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录")}\n\n`;
+    text += `情绪：${(d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录")}\n\n`;
     text += `聊聊今天的日子：\n${d.today || d.action || "未记录"}\n`;
     this.downloadFile(filename, text);
   },
@@ -1765,7 +1646,6 @@ ${historySummary}`;
     } else {
       moods.forEach((d) => {
         lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
-        lines.push(`颜色区：${d.colorZoneNames || "未选择"}`);
         lines.push(`情绪：${(d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录")}`);
         lines.push(`今天的日子：${d.today || d.action || "未记录"}`);
         lines.push("");
@@ -1804,12 +1684,13 @@ ${historySummary}`;
         if (d.aiSummary) {
           lines.push(`✨ ${d.aiSummary}`);
         }
-        if (d.people && d.people.length > 0) {
-          lines.push(`👥 一起的人：${d.people.join("、")}`);
-        }
         if (d.steps) {
-          const ems = d.steps.emotions || [];
-          if (ems.length > 0) lines.push(`情绪词：${ems.join("、")}`);
+          lines.push(`情绪事件：${d.steps.event || "未记录"}`);
+          lines.push(`身心感受：${d.steps.feeling || "未记录"}`);
+          lines.push(`感受方式：${d.steps.defense || "未记录"}`);
+          lines.push(`延展模型：${d.steps.extend || "未记录"}`);
+        } else if (d.content) {
+          lines.push(d.content);
         }
         lines.push("");
       });
@@ -1910,7 +1791,6 @@ ${historySummary}`;
     } else {
       [...moods].reverse().forEach((d) => {
         lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
-        lines.push(`颜色区：${d.colorZoneNames || "未选择"}`);
         lines.push(`情绪：${(d.emotions && d.emotions.length > 0) ? d.emotions.join("、") : (d.emotion || "未记录")}`);
         lines.push(`今天的日子：${d.today || "未记录"}`);
         lines.push("");
@@ -1945,9 +1825,14 @@ ${historySummary}`;
       [...happyDiaries].reverse().forEach((d) => {
         lines.push(`《${d.title}》 ${new Date(d.createdAt).toLocaleString("zh-CN")}`);
         if (d.aiSummary) lines.push(`✨ ${d.aiSummary}`);
-        if (d.people && d.people.length > 0) lines.push(`👥 一起的人：${d.people.join("、")}`);
-        const ems = d.steps?.emotions || [];
-        if (ems.length > 0) lines.push(`情绪词：${ems.join("、")}`);
+        if (d.steps) {
+          lines.push(`情绪事件：${d.steps.event || "未记录"}`);
+          lines.push(`身心感受：${d.steps.feeling || "未记录"}`);
+          lines.push(`感受方式：${d.steps.defense || "未记录"}`);
+          lines.push(`延展模型：${d.steps.extend || "未记录"}`);
+        } else if (d.content) {
+          lines.push(d.content);
+        }
         lines.push("");
       });
     }
@@ -1979,6 +1864,175 @@ ${historySummary}`;
     this.showToast("觉察日记已删除");
   },
 
+  // ========== 快乐治愈小分队一次性导出/上传 ==========
+  exportHappyDiariesForReorganize() {
+    const happyDiaries = this.getHappyDiaries();
+    if (happyDiaries.length === 0) {
+      this.showToast("没有快乐治愈小分队可导出");
+      return;
+    }
+    const sorted = [...happyDiaries].sort((a, b) => b.createdAt - a.createdAt);
+    const lines = [];
+    lines.push("# 快乐治愈小分队整理");
+    lines.push(`生成时间：${new Date().toLocaleString("zh-CN")}`);
+    lines.push(`共 ${sorted.length} 篇`);
+    lines.push("");
+    lines.push("=== 编辑说明 ===");
+    lines.push("- 每条以 ## [id:...] 开头，id 不要改");
+    lines.push("- 标题、金句可以自由修改");
+    lines.push("- 正文（事件/感受/方式/延展）可以自由修改");
+    lines.push("- 删除某条就删掉整段（从 ## 到下一个 ## 之前）");
+    lines.push("- 想新增条目？复制一整段，改成新的 id（13位时间戳如 " + Date.now() + "），标题和金句自己写");
+    lines.push("==================");
+    lines.push("");
+
+    sorted.forEach((d) => {
+      const steps = d.steps || {};
+      lines.push(`## [id:${d.id}] ${d.title || "未命名"}`);
+      lines.push(`时间：${new Date(d.createdAt).toLocaleString("zh-CN")}`);
+      lines.push(`金句：${d.aiSummary || ""}`);
+      lines.push("---");
+      lines.push(`情绪事件：${steps.event || ""}`);
+      lines.push(`身心感受：${steps.feeling || ""}`);
+      lines.push(`感受方式：${steps.defense || ""}`);
+      lines.push(`延展模型：${steps.extend || ""}`);
+      if (d.feedback) {
+        lines.push(`小树回应：${d.feedback}`);
+      }
+      lines.push("");
+    });
+
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    this.downloadFile(`快乐治愈小分队_整理_${dateStr}.txt`, lines.join("\n"));
+    this.showToast("已导出全部快乐治愈小分队 📤");
+  },
+
+  importHappyDiaries(text) {
+    // 按 ## [id:xxx] 分块解析
+    const entries = [];
+    const blocks = text.split(/\n(?=## \[id:\d+\])/);
+
+    for (const block of blocks) {
+      const idMatch = block.match(/^## \[id:(\d+)\]/);
+      if (!idMatch) continue;
+      const id = parseInt(idMatch[1], 10);
+
+      const titleMatch = block.match(/^## \[id:\d+\]\s*(.*)/);
+      const title = (titleMatch ? titleMatch[1].trim() : "未命名");
+
+      const lines = block.split("\n");
+      let aiSummary = "";
+      let event = "", feeling = "", defense = "", extend = "", feedback = "";
+      let currentField = "";
+      let bodyStart = false;
+
+      for (const line of lines) {
+        if (line.startsWith("## ")) continue;
+
+        const tsMatch = line.match(/^时间：(.+)$/);
+        if (tsMatch) continue; // 时间从原数据保留
+
+        if (line.match(/^金句：(.+)$/)) {
+          aiSummary = line.replace(/^金句：/, "").trim();
+          continue;
+        }
+        if (line === "---") { bodyStart = true; continue; }
+        if (!bodyStart) continue;
+
+        const fieldMatch = line.match(/^(情绪事件|身心感受|感受方式|延展模型|小树回应)：(.*)/);
+        if (fieldMatch) {
+          const field = fieldMatch[1];
+          const val = (fieldMatch[2] || "").trim();
+          if (field === "情绪事件") event = val;
+          if (field === "身心感受") feeling = val;
+          if (field === "感受方式") defense = val;
+          if (field === "延展模型") extend = val;
+          if (field === "小树回应") feedback = val;
+        }
+      }
+
+      if (!event && !feeling) continue; // 跳过空条目
+
+      const steps = {
+        event, feeling, defense, extend,
+        emotions: ["快乐瞬间"],
+        category: "happy",
+        isHappy: true,
+        zones: [],
+      };
+
+      // 合并到现有日记
+      const existingIdx = this.diaries.findIndex(d => d.id === id);
+      const entry = {
+        id: isNaN(id) ? Date.now() : id,
+        title,
+        date: new Date(isNaN(id) ? Date.now() : id).toISOString().slice(0, 10),
+        source: "guided",
+        category: "happy",
+        steps,
+        content: `【情绪事件】\n${event}\n\n【身心感受】\n${feeling}\n\n【感受方式】\n${defense}\n\n【延展模型】\n${extend}`,
+        feedback,
+        aiSummary,
+        primaryEmotion: this.extractPrimaryEmotion(feeling),
+        createdAt: isNaN(id) ? Date.now() : id,
+      };
+
+      if (existingIdx >= 0) {
+        // 保留旧数据中用户可能已编辑的字段
+        const old = this.diaries[existingIdx];
+        entry.createdAt = old.createdAt;
+        entry.date = old.date;
+        this.diaries[existingIdx] = entry;
+      } else {
+        this.diaries.unshift(entry);
+      }
+      entries.push(entry);
+    }
+
+    this.saveData();
+    return entries.length;
+  },
+
+  triggerHappyReorganizeUpload() {
+    const input = document.getElementById("reorganize-upload-input");
+    if (!input) return;
+    input.value = "";
+    input.click();
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const count = this.importHappyDiaries(reader.result);
+          if (count === 0) {
+            this.showToast("未能解析到有效条目，请检查文件格式");
+            return;
+          }
+          localStorage.setItem("xs_happy_reorganized", "1");
+          this.hideReorganizeSection();
+          this.renderDiaries();
+          this.showToast(`已导入 ${count} 条快乐治愈小分队 ✨`);
+        } catch (err) {
+          console.error("导入失败", err);
+          this.showToast("导入失败：" + err.message);
+        }
+      };
+      reader.readAsText(file, "UTF-8");
+    };
+  },
+
+  hideReorganizeSection() {
+    const section = document.getElementById("reorganize-section");
+    if (section) section.style.display = "none";
+  },
+
+  checkReorganizeSection() {
+    if (localStorage.getItem("xs_happy_reorganized") === "1") {
+      this.hideReorganizeSection();
+    }
+  },
+
   deleteMoodDiary(id) {
     if (!confirm("确定删除这条日日记录吗？")) return;
     this.moodDiaries = this.moodDiaries.filter((d) => d.id !== id);
@@ -1995,6 +2049,7 @@ ${historySummary}`;
     if (apiKeyInput) apiKeyInput.value = CONFIG.API_KEY;
     if (modelInput) modelInput.value = CONFIG.MODEL;
     if (baseUrlInput) baseUrlInput.value = CONFIG.BASE_URL;
+    this.checkReorganizeSection();
   },
 
   saveSettings() {
@@ -2033,6 +2088,9 @@ ${historySummary}`;
     localStorage.removeItem("xs_mode");
     localStorage.removeItem("xs_people");
     localStorage.removeItem("xs_user_config");
+    localStorage.removeItem("xs_happy_reorganized");
+    localStorage.removeItem("xs_sparkle_excluded_people");
+    localStorage.removeItem("xs_sparkle_merge_map");
     this.currentChat = [];
     this.diaries = [];
     this.moodDiaries = [];
@@ -2461,25 +2519,7 @@ ${obsText}${ctInfo}
     return this.diaries.filter((d) => (d.category || d.steps?.category) === "happy");
   },
 
-  // 用户主动删除/合并过的人物标签，后续 AI 不再提取
-  getExcludedSparklePeople() {
-    try {
-      return JSON.parse(localStorage.getItem("xs_sparkle_excluded_people") || "[]");
-    } catch (e) {
-      return [];
-    }
-  },
-  addExcludedSparklePerson(name) {
-    if (!name) return;
-    const excluded = this.getExcludedSparklePeople();
-    if (!excluded.includes(name)) {
-      excluded.push(name);
-      localStorage.setItem("xs_sparkle_excluded_people", JSON.stringify(excluded));
-    }
-  },
-  clearExcludedSparklePeople() {
-    localStorage.removeItem("xs_sparkle_excluded_people");
-  },
+  // 人物打标功能已删除（people 字段、extractHappyPeople 等全部移除）
 
   // Fisher-Yates 洗牌
   shuffleArray(arr) {
@@ -2507,30 +2547,15 @@ ${obsText}${ctInfo}
   },
 
   async ensureHappyDiaryMetadata(diary) {
-    // 用户已手动编辑过人物标签，直接跳过并标记完成，尊重用户选择
-    if (diary._peopleEdited) {
-      diary._metaGenerated = true;
-      return diary;
-    }
-
     // 已生成过（有标记位）就直接跳过，避免反复请求
     if (diary._metaGenerated) return diary;
 
-    diary.aiSummary = diary.aiSummary || "";
-    diary.people = diary.people || [];
-    if (!diary.aiSummary || diary.people.length === 0) {
+    if (!diary.aiSummary) {
       try {
-        const excluded = this.getExcludedSparklePeople();
-        const [aiSummary, people] = await Promise.all([
-          this.generateHappySummary(diary.steps),
-          this.extractHappyPeople(diary.steps, excluded),
-        ]);
-        diary.aiSummary = aiSummary;
-        diary.people = people;
+        diary.aiSummary = await this.generateHappySummary(diary.steps);
       } catch (err) {
-        console.error("补生成闪光元数据失败", err);
+        console.error("补生成闪光金句失败", err);
         if (!diary.aiSummary) diary.aiSummary = diary.steps?.event?.slice(0, 60) || diary.title || "";
-        if (diary.people.length === 0) diary.people = [];
       }
     }
     diary._metaGenerated = true;
@@ -2572,38 +2597,36 @@ ${obsText}${ctInfo}
     if (loadingEl) loadingEl.style.display = "none";
     if (cardViewEl) cardViewEl.style.display = "flex";
 
-    document.getElementById("sparkle-card-date").textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
+    const dateEl = document.getElementById("sparkle-card-date");
+    if (dateEl) dateEl.textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
     const quoteEl = document.getElementById("sparkle-card-quote");
-    quoteEl.textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
-    // 点击金句可编辑
-    quoteEl.contentEditable = "true";
-    quoteEl.spellcheck = false;
-    quoteEl.style.cursor = "text";
-    quoteEl.ondblclick = null;
-    quoteEl.addEventListener("blur", () => {
-      const newText = quoteEl.textContent.trim();
-      if (newText && newText !== (diary.aiSummary || diary.title)) {
-        diary.aiSummary = newText;
-        if (!diary.title) diary.title = newText;
-        this.saveData();
-        this.showToast("金句已更新 ✨");
-      }
-    });
+    if (quoteEl) {
+      quoteEl.textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
+      // 点击金句可编辑。用 onblur 属性代替 addEventListener，避免监听器堆积造成金句错位
+      quoteEl.contentEditable = "true";
+      quoteEl.spellcheck = false;
+      quoteEl.style.cursor = "text";
+      quoteEl.ondblclick = null;
+      quoteEl.onblur = () => {
+        const newText = quoteEl.textContent.trim();
+        if (newText && newText !== (this.sparkleCurrentDiary?.aiSummary || this.sparkleCurrentDiary?.title)) {
+          if (this.sparkleCurrentDiary) {
+            this.sparkleCurrentDiary.aiSummary = newText;
+          }
+          this.saveData();
+          this.showToast("金句已更新 ✨");
+        }
+      };
+    }
 
     // 也更新详情页的金句（如果正在看）
     const detailQuote = document.querySelector("#sparkle-detail .sparkle-detail-quote");
     if (detailQuote) detailQuote.textContent = diary.aiSummary || diary.title;
 
-    const peopleEl = document.getElementById("sparkle-card-people");
-    if (diary.people && diary.people.length > 0) {
-      peopleEl.innerHTML = diary.people.map((p) => `<span class="people-chip">${this.escapeHtml(p)}</span>`).join("");
-    } else {
-      peopleEl.innerHTML = "";
-    }
+    // 人物打标功能已删除
 
-    // 把当前日记绑定到查看原文按钮
     const viewBtn = document.getElementById("sparkle-view-detail");
-    viewBtn.style.display = "";
+    if (viewBtn) viewBtn.style.display = "";
   },
 
   showSparkleDetail(diary) {
@@ -2618,8 +2641,6 @@ ${obsText}${ctInfo}
 
     const steps = diary.steps || {};
     const defenseLabel = diary.category === "happy" || steps.category === "happy" ? "感受方式" : "防御方式";
-    const emotions = steps.emotions || [];
-    const zones = steps.zones || [];
 
     let html = `
       <div class="sparkle-detail-meta">
@@ -2628,17 +2649,6 @@ ${obsText}${ctInfo}
       </div>
       <div class="sparkle-detail-quote">${this.escapeHtml(diary.aiSummary || diary.title)}</div>
     `;
-
-    if (emotions.length > 0 || zones.length > 0) {
-      html += `<div class="sparkle-detail-tags">`;
-      if (zones.length > 0) {
-        html += zones.map((z) => `<span class="sparkle-detail-zone">${this.emotionZones[z]?.name || z}</span>`).join("");
-      }
-      if (emotions.length > 0) {
-        html += emotions.map((e) => `<span class="sparkle-detail-emotion">${this.escapeHtml(e)}</span>`).join("");
-      }
-      html += `</div>`;
-    }
 
     html += `
       <div class="sparkle-detail-section"><span class="sparkle-detail-label">情绪事件</span><div class="sparkle-detail-text">${this.markdownToHtml(steps.event || "")}</div></div>
@@ -2686,15 +2696,11 @@ ${obsText}${ctInfo}
       item.className = "sparkle-browse-item";
       const quote = diary.aiSummary || diary.steps?.event?.slice(0, 60) || "✨";
       const dateStr = new Date(diary.createdAt).toLocaleDateString("zh-CN");
-      const ppl = (diary.people && diary.people.length > 0)
-        ? diary.people.map((p) => `<span class="people-chip">${this.escapeHtml(p)}</span>`).join("")
-        : "";
 
       item.innerHTML = `
         <div class="sparkle-browse-item-quote">${this.escapeHtml(quote)}</div>
         <div class="sparkle-browse-item-meta">
           <span>${dateStr}</span>
-          ${ppl ? `<div class="sparkle-browse-item-people">${ppl}</div>` : ""}
         </div>
       `;
 
@@ -2710,145 +2716,7 @@ ${obsText}${ctInfo}
     if (browseEl) browseEl.style.display = "none";
   },
 
-  renderSparklePeopleFilter() {
-    const filterEl = document.getElementById("sparkle-people-filter");
-    const listEl = document.getElementById("sparkle-people-list");
-    const happyDiaries = this.getHappyDiaries();
-
-    // 读取用户自定义的合并映射
-    let mergeMap = {};
-    try {
-      mergeMap = JSON.parse(localStorage.getItem("xs_sparkle_merge_map") || "{}");
-    } catch (e) {}
-
-    // 统计每个人物出现次数，过滤掉无意义标签
-    const skipWords = new Set(["我", "他", "她", "其他人", "朋友", "同事", "孩子", "男朋友", "女朋友", "老公", "老婆"]);
-    const countMap = {};
-    happyDiaries.forEach((d) => {
-      (d.people || []).forEach((p) => {
-        if (skipWords.has(p)) return;
-        // 应用合并映射
-        const canonical = mergeMap[p] || p;
-        countMap[canonical] = (countMap[canonical] || 0) + 1;
-      });
-    });
-
-    // 按出现次数降序排列
-    const people = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
-
-    if (people.length === 0) {
-      listEl.innerHTML = '<div class="sparkle-empty-hint">还没有人物标签</div>';
-    } else {
-      listEl.innerHTML = [
-        `<span class="people-chip active" data-person="__all__">全部 (${happyDiaries.length})</span>`,
-        ...people.map(([name, count]) =>
-          `<span class="people-chip" data-person="${this.escapeHtml(name)}">${this.escapeHtml(name)} ${count}<button class="chip-rename" data-name="${this.escapeHtml(name)}" title="重命名/合并此标签">✎</button><button class="chip-delete" data-name="${this.escapeHtml(name)}" title="删除此标签">×</button></span>`
-        ),
-      ].join("");
-    }
-
-    // 如果有合并映射，显示提示
-    if (Object.keys(mergeMap).length > 0) {
-      listEl.innerHTML += '<div style="font-size:11px;color:var(--text-light);margin-top:8px;">已合并：' +
-        Object.entries(mergeMap).map(([from, to]) => `「${from}」→「${to}」`).join("、") + '</div>';
-    }
-
-    filterEl.style.display = "flex";
-
-    // 重命名人物标签
-    listEl.querySelectorAll(".chip-rename").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const oldName = btn.dataset.name;
-        if (!oldName) return;
-        const newName = prompt(`将「${oldName}」重命名为（合并到已有标签会自动合并统计）：`, oldName);
-        if (!newName || newName.trim() === oldName) return;
-        this.mergeSparklePerson(oldName, newName.trim());
-        this.renderSparklePeopleFilter();
-      });
-    });
-
-    // 删除人物标签事件
-    listEl.querySelectorAll(".chip-delete").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const name = btn.dataset.name;
-        if (!name) return;
-        if (!confirm(`确定从所有日记中删除人物标签「${name}」吗？`)) return;
-        this.deleteSparklePerson(name);
-        this.renderSparklePeopleFilter();
-      });
-    });
-  },
-
-  mergeSparklePerson(fromName, toName) {
-    // 保存合并映射到 localStorage，持久化
-    let mergeMap = {};
-    try {
-      mergeMap = JSON.parse(localStorage.getItem("xs_sparkle_merge_map") || "{}");
-    } catch (e) {}
-    mergeMap[fromName] = toName;
-    // 如果 fromName 之前作为目标接收过其他合并，级联更新
-    for (const [k, v] of Object.entries(mergeMap)) {
-      if (v === fromName) mergeMap[k] = toName;
-    }
-    localStorage.setItem("xs_sparkle_merge_map", JSON.stringify(mergeMap));
-
-    const happyDiaries = this.getHappyDiaries();
-    let affected = false;
-    for (const d of happyDiaries) {
-      if (d.people && d.people.includes(fromName)) {
-        d.people = d.people.map((p) => p === fromName ? toName : p);
-        // 去重
-        d.people = [...new Set(d.people)];
-        d._peopleEdited = true;
-        affected = true;
-      }
-    }
-    this.saveData();
-    if (affected) {
-      this.addExcludedSparklePerson(fromName);
-    }
-    this.showToast(`已将「${fromName}」合并到「${toName}」`);
-  },
-
-  deleteSparklePerson(name) {
-    const happyDiaries = this.getHappyDiaries();
-    let affected = false;
-    for (const d of happyDiaries) {
-      if (d.people && d.people.includes(name)) {
-        d.people = d.people.filter((p) => p !== name);
-        d._peopleEdited = true;
-        affected = true;
-      }
-    }
-    this.saveData();
-    if (affected) {
-      this.addExcludedSparklePerson(name);
-    }
-    this.showToast(`已删除标签「${name}」`);
-  },
-
-  hideSparklePeopleFilter() {
-    const filterEl = document.getElementById("sparkle-people-filter");
-    if (filterEl) filterEl.style.display = "none";
-  },
-
-  filterSparkleByPerson(person) {
-    this.hideSparklePeopleFilter();
-    const happyDiaries = this.getHappyDiaries();
-    const filtered = person === "__all__"
-      ? happyDiaries
-      : happyDiaries.filter((d) => (d.people || []).includes(person));
-
-    if (filtered.length === 0) {
-      this.showToast("没有和这个人相关的闪光瞬间");
-      return;
-    }
-
-    const diary = filtered[Math.floor(Math.random() * filtered.length)];
-    this.showSparkleDetail(diary);
-  },
+  // renderSparklePeopleFilter / mergeSparklePerson / deleteSparklePerson / hideSparklePeopleFilter 已删除（人物打标功能已移除）
 
   // ========== 事件监听 ==========
   setupEventListeners() {
@@ -2913,7 +2781,7 @@ ${obsText}${ctInfo}
     });
     // 重新来过
     document.getElementById("reset-guided-btn").addEventListener("click", () => {
-      this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", zones: [], emotions: [], category: null } };
+      this.guided = { currentStep: 1, steps: { event: "", feeling: "", defense: "", extend: "", isHappy: false, emotions: [], category: null } };
       this.clearGuidedDraft();
       document.getElementById("guided-step-card").style.display = "";
       document.getElementById("guided-summary").style.display = "none";
@@ -2921,28 +2789,10 @@ ${obsText}${ctInfo}
       this.renderGuidedStep();
     });
 
-    // 觉察日记颜色区多选
-    const guidedMoodWheel = document.getElementById("guided-mood-wheel");
-    if (guidedMoodWheel) {
-      guidedMoodWheel.addEventListener("click", (e) => {
-        const zone = e.target.closest(".mood-zone");
-        if (!zone) return;
-        zone.classList.toggle("selected");
-        const selectedZones = Array.from(guidedMoodWheel.querySelectorAll(".mood-zone.selected"))
-          .map((el) => el.dataset.zone);
-        this.guided.steps.zones = selectedZones;
-        this.renderGuidedEmotionTags();
-      });
-    }
-
-    // 觉察日记情绪词多选
-    const guidedEmotionTags = document.getElementById("guided-emotion-tags");
-    if (guidedEmotionTags) {
-      guidedEmotionTags.addEventListener("click", (e) => {
-        const tag = e.target.closest(".emotion-tag");
-        if (!tag) return;
-        tag.classList.toggle("selected");
-      });
+    // 「快乐瞬间」toggle
+    const guidedHappyBtn = document.getElementById("guided-happy-btn");
+    if (guidedHappyBtn) {
+      guidedHappyBtn.addEventListener("click", () => this.toggleGuidedHappy());
     }
 
     // 导出
@@ -3008,31 +2858,7 @@ ${obsText}${ctInfo}
     const relaxClose = document.getElementById("relax-close");
     if (relaxClose) relaxClose.addEventListener("click", () => this.closeRelaxOverlay());
 
-    // 日日记录颜色区多选
-    document.querySelectorAll("#my-diary-mood-wheel .mood-zone").forEach(zone => {
-      zone.addEventListener("click", (e) => {
-        const zoneKey = e.currentTarget.dataset.zone;
-        this.toggleMyDiaryZone(zoneKey);
-      });
-    });
-
-    // 日日记录情绪标签多选
-    const myDiaryEmotionTags = document.getElementById("my-diary-emotion-tags");
-    if (myDiaryEmotionTags) {
-      myDiaryEmotionTags.addEventListener("click", (e) => {
-        const tag = e.target.closest(".emotion-tag");
-        if (!tag) return;
-        const em = tag.dataset.emotion;
-        const idx = this.myDiaryEmotions.indexOf(em);
-        if (idx >= 0) {
-          this.myDiaryEmotions.splice(idx, 1);
-          tag.classList.remove("selected");
-        } else {
-          this.myDiaryEmotions.push(em);
-          tag.classList.add("selected");
-        }
-      });
-    }
+    // 日日记录的颜色区/情绪标签选择已移除，仅保留文字输入
 
     // ===== 识人板块事件 =====
     document.getElementById("add-person-btn").addEventListener("click", () => this.showPersonForm());
@@ -3105,6 +2931,12 @@ ${obsText}${ctInfo}
       });
     }
 
+    // 整理快乐治愈小分队（一次性导出/上传）
+    const reorganizeExportBtn = document.getElementById("reorganize-export-btn");
+    if (reorganizeExportBtn) reorganizeExportBtn.addEventListener("click", () => this.exportHappyDiariesForReorganize());
+    const reorganizeUploadBtn = document.getElementById("reorganize-upload-btn");
+    if (reorganizeUploadBtn) reorganizeUploadBtn.addEventListener("click", () => this.triggerHappyReorganizeUpload());
+
     // ===== 闪光页事件 =====
     const sparkleNext = document.getElementById("sparkle-next");
     if (sparkleNext) sparkleNext.addEventListener("click", () => {
@@ -3126,21 +2958,7 @@ ${obsText}${ctInfo}
     const sparkleBack = document.getElementById("sparkle-back");
     if (sparkleBack) sparkleBack.addEventListener("click", () => this.hideSparkleDetail());
 
-    const sparkleFilterToggle = document.getElementById("sparkle-filter-toggle");
-    if (sparkleFilterToggle) sparkleFilterToggle.addEventListener("click", () => this.renderSparklePeopleFilter());
-
-    const sparkleFilterClose = document.getElementById("sparkle-filter-close");
-    if (sparkleFilterClose) sparkleFilterClose.addEventListener("click", () => this.hideSparklePeopleFilter());
-
-    const sparklePeopleList = document.getElementById("sparkle-people-list");
-    if (sparklePeopleList) {
-      sparklePeopleList.addEventListener("click", (e) => {
-        const chip = e.target.closest(".people-chip");
-        if (!chip) return;
-        const person = chip.dataset.person;
-        if (person) this.filterSparkleByPerson(person);
-      });
-    }
+    // 人物筛选功能已删除
   },
 
   // ========== 工具函数 ==========
