@@ -69,7 +69,7 @@ python -m http.server 8080
 编辑 `config.js`：
 
 ```js
-MODEL: "deepseek-v4-pro", // 或 deepseek-v4-flash
+MODEL: "deepseek-chat", // 或 deepseek-reasoner
 ```
 
 ### 修改谢小树 system prompt

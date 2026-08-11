@@ -19,12 +19,6 @@ function loadUserConfig() {
     const saved = localStorage.getItem("xs_user_config");
     if (saved) {
       const user = JSON.parse(saved);
-      // 迁移已停用的历史模型名，避免老用户继续请求 deepseek-chat 导致 API 调用失败
-      if (user.MODEL === "deepseek-chat") {
-        console.warn("检测到已停用的 deepseek-chat，已自动迁移到 deepseek-v4-flash");
-        user.MODEL = "deepseek-v4-flash";
-        localStorage.setItem("xs_user_config", JSON.stringify(user));
-      }
       // 防手机自动填充：检测被污染的配置并自动纠正
       if (user.MODEL && (user.MODEL.startsWith("sk-") || user.MODEL.length > 40)) {
         console.warn("检测到模型配置被异常填充，已自动纠正");
@@ -42,3 +36,4 @@ function loadUserConfig() {
 }
 
 loadUserConfig();
+
