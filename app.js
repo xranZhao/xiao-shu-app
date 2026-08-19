@@ -678,6 +678,8 @@ ${historySummary}`;
       } catch (err) {
         console.error("生成闪光金句失败", err);
       }
+      // 兜底：生成失败或返回空时，用事件原文前 40 字，保证金句固定非空
+      if (!aiSummary) aiSummary = (steps.event || "").slice(0, 40);
     }
 
     const diary = {
@@ -690,7 +692,6 @@ ${historySummary}`;
       content,
       feedback,
       aiSummary,
-      primaryEmotion: this.extractPrimaryEmotion(steps.feeling),
       createdAt: Date.now(),
     };
 
@@ -710,30 +711,23 @@ ${historySummary}`;
   },
 
   async generateHappySummary(steps) {
-    const prompt = `请根据下面这篇快乐/治愈日记，用第一人称「我」写一句自然、真实的话来总结这个瞬间。
+    const prompt = `下面是我写的一篇快乐/治愈日记。请从我的原文里挑一句最能代表那一刻感受的话，作为这张卡片的金句。
 
 要求：
-- 1-2 句话，30-80 字。
-- 不罗列事件，不分析情绪，不说教，不升华，不堆形容词。
-- 像你自己事后回忆这个瞬间时会说的话——自然、具体、有细节。
-- 抓取一个具体细节（一个动作、一句话、一个场景）来写。
-- 语气轻一点，像跟朋友随口聊起，别刻意煽情。
+- 尽量用我原文里现成的句子，只做最轻微的顺句（去掉语气词、口头禅、重复，理顺标点）。
+- 不要新增比喻、拟人、排比，不要押韵，不要四字成语堆砌，不要升华、不说教、不评价。
+- 不要改写成第二人称，保持第一人称「我」。
+- 保持我原来的语气和用词，朴素、具体，像我自己事后随口说起。
+- 1 句话即可，20-40 字，越短越好。
 
-错误示例（不要这样写）：
-- "你托腮望月，风拂过你的发梢" → 第二人称，不对
-- "我托腮望月，风拂过发梢" → 太矫情，像文艺作文
-- "这个世界真美好，因为有你陪在我身边" → 太空洞，没有具体细节
-
-正确示例：
-- "今天骑车经过江边，江水声哗哗的，风吹在脸上有点凉，但很舒服"
-- "妈妈炒菜的时候我站在旁边，她说这个菜是我小时候最爱吃的"
+如果原文实在没有完整的一句话，就把它自然地顺成一句，但不要往文艺腔上靠。
 
 【情绪事件】${steps.event || ""}
 【身心感受】${steps.feeling || ""}
 【感受方式】${steps.defense || ""}
 【延展模型】${steps.extend || ""}
 
-只输出金句，不要任何解释。`;
+只输出金句本身，不要引号，不要任何解释。`;
 
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
@@ -741,10 +735,10 @@ ${historySummary}`;
       body: JSON.stringify({
         model: CONFIG.MODEL,
         messages: [
-          { role: "system", content: "你是一个擅长写温暖短句的助手。" },
+          { role: "system", content: "你负责忠实摘取用户日记原文中的一句话作为金句，只做轻微顺句，不创作、不升华、不文艺腔。" },
           { role: "user", content: prompt },
         ],
-        temperature: 0.8,
+        temperature: 0.5,
         max_tokens: 200,
       }),
     });
@@ -1103,15 +1097,6 @@ ${historySummary}`;
       this.exportReverseDiary(d.id);
     }
     this.showToast(`已导出 ${this.reverseDiaries.length} 条反向选择`);
-  },
-
-  extractPrimaryEmotion(feelingText) {
-    const emotions = ["愤怒", "委屈", "难过", "无力", "焦虑", "恐惧", "羞耻", "内疚", "孤独",
-      "失望", "烦躁", "崩溃", "压抑", "悲伤", "痛苦", "自责", "自卑"];
-    for (const e of emotions) {
-      if (feelingText.includes(e)) return e;
-    }
-    return "情绪波动";
   },
 
   viewDiary(id) {
@@ -1982,9 +1967,11 @@ ${historySummary}`;
 
       const lines = block.split("\n");
       let aiSummary = "";
-      let event = "", feeling = "", defense = "", extend = "", feedback = "";
+      const fields = { event: [], feeling: [], defense: [], extend: [], feedback: [] };
       let currentField = "";
       let bodyStart = false;
+
+      const fieldKeyMap = { "情绪事件": "event", "身心感受": "feeling", "感受方式": "defense", "延展模型": "extend", "小树回应": "feedback" };
 
       for (const line of lines) {
         if (line.startsWith("## ")) continue;
@@ -1999,17 +1986,24 @@ ${historySummary}`;
         if (line === "---") { bodyStart = true; continue; }
         if (!bodyStart) continue;
 
-        const fieldMatch = line.match(/^(情绪事件|身心感受|感受方式|延展模型|小树回应)：(.*)/);
+        // 命中字段名 → 切换当前字段，并收取本行冒号后的首段内容
+        const fieldMatch = line.match(/^(情绪事件|身心感受|感受方式|延展模型|小树回应)：(.*)$/);
         if (fieldMatch) {
-          const field = fieldMatch[1];
+          currentField = fieldKeyMap[fieldMatch[1]];
           const val = (fieldMatch[2] || "").trim();
-          if (field === "情绪事件") event = val;
-          if (field === "身心感受") feeling = val;
-          if (field === "感受方式") defense = val;
-          if (field === "延展模型") extend = val;
-          if (field === "小树回应") feedback = val;
+          if (val) fields[currentField].push(val);
+          continue;
         }
+
+        // 未命中字段名 → 续写到当前字段（保留换行，长文不丢）
+        if (currentField) fields[currentField].push(line);
       }
+
+      const event = fields.event.join("\n").trim();
+      const feeling = fields.feeling.join("\n").trim();
+      const defense = fields.defense.join("\n").trim();
+      const extend = fields.extend.join("\n").trim();
+      const feedback = fields.feedback.join("\n").trim();
 
       if (!event && !feeling) continue; // 跳过空条目
 
@@ -2033,7 +2027,6 @@ ${historySummary}`;
         content: `【情绪事件】\n${event}\n\n【身心感受】\n${feeling}\n\n【感受方式】\n${defense}\n\n【延展模型】\n${extend}`,
         feedback,
         aiSummary,
-        primaryEmotion: this.extractPrimaryEmotion(feeling),
         createdAt: isNaN(id) ? Date.now() : id,
       };
 
@@ -2579,6 +2572,16 @@ ${obsText}${ctInfo}
     return this.diaries.filter((d) => (d.category || d.steps?.category) === "happy");
   },
 
+  // 统一金句兜底：AI 金句 → 非「未命名」的标题 → 事件/感受原文前 40 字
+  quoteFor(diary) {
+    if (diary.aiSummary && diary.aiSummary.trim()) return diary.aiSummary.trim();
+    const title = diary.title && diary.title.trim();
+    if (title && title !== "未命名") return title;
+    const steps = diary.steps || {};
+    const raw = (steps.event || "").trim() || (steps.feeling || "").trim();
+    return raw.slice(0, 40) || "✨";
+  },
+
   // 人物打标功能已删除（people 字段、extractHappyPeople 等全部移除）
 
   // Fisher-Yates 洗牌
@@ -2604,23 +2607,6 @@ ${obsText}${ctInfo}
       this.sparkleQueue = this.shuffleArray(happyDiaries.map(d => d.id));
       this.sparkleQueueIndex = 0;
     }
-  },
-
-  async ensureHappyDiaryMetadata(diary) {
-    // 已生成过（有标记位）就直接跳过，避免反复请求
-    if (diary._metaGenerated) return diary;
-
-    if (!diary.aiSummary) {
-      try {
-        diary.aiSummary = await this.generateHappySummary(diary.steps);
-      } catch (err) {
-        console.error("补生成闪光金句失败", err);
-        if (!diary.aiSummary) diary.aiSummary = diary.steps?.event?.slice(0, 60) || diary.title || "";
-      }
-    }
-    diary._metaGenerated = true;
-    this.saveData();
-    return diary;
   },
 
   async renderSparkleCard() {
@@ -2652,7 +2638,7 @@ ${obsText}${ctInfo}
     const diary = happyDiaries.find(d => d.id === nextId) || happyDiaries[0];
     this.sparkleQueueIndex++;
     this.sparkleCurrentDiary = diary;
-    await this.ensureHappyDiaryMetadata(diary);
+    // 金句只读、不现场生成：新日记保存时已生成，历史空值走原文兜底，展示路径零异步，避免金句错位
 
     if (loadingEl) loadingEl.style.display = "none";
     if (cardViewEl) cardViewEl.style.display = "flex";
@@ -2661,18 +2647,16 @@ ${obsText}${ctInfo}
     if (dateEl) dateEl.textContent = new Date(diary.createdAt).toLocaleDateString("zh-CN");
     const quoteEl = document.getElementById("sparkle-card-quote");
     if (quoteEl) {
-      quoteEl.textContent = diary.aiSummary || diary.title || diary.steps?.event?.slice(0, 40) || "✨";
-      // 点击金句可编辑。用 onblur 属性代替 addEventListener，避免监听器堆积造成金句错位
+      quoteEl.textContent = this.quoteFor(diary);
+      // 点击金句可编辑。onblur 写入当前渲染的这一条（局部变量），不读全局单例，避免错位
       quoteEl.contentEditable = "true";
       quoteEl.spellcheck = false;
       quoteEl.style.cursor = "text";
       quoteEl.ondblclick = null;
       quoteEl.onblur = () => {
         const newText = quoteEl.textContent.trim();
-        if (newText && newText !== (this.sparkleCurrentDiary?.aiSummary || this.sparkleCurrentDiary?.title)) {
-          if (this.sparkleCurrentDiary) {
-            this.sparkleCurrentDiary.aiSummary = newText;
-          }
+        if (newText && newText !== (diary.aiSummary || diary.title)) {
+          diary.aiSummary = newText;
           this.saveData();
           this.showToast("金句已更新 ✨");
         }
@@ -2681,7 +2665,7 @@ ${obsText}${ctInfo}
 
     // 也更新详情页的金句（如果正在看）
     const detailQuote = document.querySelector("#sparkle-detail .sparkle-detail-quote");
-    if (detailQuote) detailQuote.textContent = diary.aiSummary || diary.title;
+    if (detailQuote) detailQuote.textContent = this.quoteFor(diary);
 
     // 人物打标功能已删除
 
@@ -2707,7 +2691,7 @@ ${obsText}${ctInfo}
         <span class="sparkle-detail-tag">✨ 快乐治愈小分队</span>
         <span class="sparkle-detail-date">${new Date(diary.createdAt).toLocaleDateString("zh-CN")}</span>
       </div>
-      <div class="sparkle-detail-quote">${this.escapeHtml(diary.aiSummary || diary.title)}</div>
+      <div class="sparkle-detail-quote">${this.escapeHtml(this.quoteFor(diary))}</div>
     `;
 
     html += `
@@ -2754,7 +2738,7 @@ ${obsText}${ctInfo}
     sorted.forEach((diary) => {
       const item = document.createElement("div");
       item.className = "sparkle-browse-item";
-      const quote = diary.aiSummary || diary.steps?.event?.slice(0, 60) || "✨";
+      const quote = this.quoteFor(diary);
       const dateStr = new Date(diary.createdAt).toLocaleDateString("zh-CN");
 
       item.innerHTML = `
