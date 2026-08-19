@@ -1953,6 +1953,8 @@ ${historySummary}`;
   },
 
   importHappyDiaries(text) {
+    // 统一换行符：兼容 Windows 记事本/编辑器导出的 CRLF，避免 --- 判断失败
+    text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
     // 按 ## [id:xxx] 分块解析
     const entries = [];
     const blocks = text.split(/\n(?=## \[id:\d+\])/);
