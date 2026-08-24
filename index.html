@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json?v=1">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=32">
+  <link rel="stylesheet" href="style.css?v=34">
   <script>
     (function () {
       function setVh() {
@@ -323,6 +323,29 @@
         <p id="reorganize-status" style="font-size:12px;color:var(--text-light);margin-top:8px;display:none;"></p>
       </div>
 
+      <div class="settings-card" id="sync-section">
+        <h3>☁️ 同步到电脑</h3>
+        <p class="settings-help">将觉察日记、反向选择和快乐治愈小分队上传到私人 GitHub 资料库，供电脑端阿野工作流直接检索。支持单条上传，也支持只上传全部未同步记录。</p>
+        <div class="form-group">
+          <label>GitHub Token</label>
+          <input type="password" id="sync-github-token" placeholder="github_pat_..." autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>私人资料仓库</label>
+          <input type="text" id="sync-github-repo" value="xranZhao/aye-article-inbox" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>同步目录</label>
+          <input type="text" id="sync-github-path" value="5-小树觉察库" autocomplete="off">
+        </div>
+        <div class="sync-settings-actions">
+          <button id="save-sync-settings-btn" class="btn-primary">💾 保存同步设置</button>
+          <button id="test-sync-btn" class="btn-text sync-test-btn">测试私人仓库连接</button>
+        </div>
+        <button id="sync-upload-all-btn" class="btn-primary sync-upload-all-btn">☁️ 上传全部未同步记录</button>
+        <p id="sync-status" class="sync-status">正在统计待上传记录…</p>
+      </div>
+
       <div class="settings-card">
         <h3>🔑 API 设置</h3>
         <p class="settings-help">只需粘贴 API Key，点「保存设置」即可。下面两项一般不用改。</p>
@@ -352,7 +375,7 @@
       <div class="settings-card">
         <h3>关于</h3>
         <p>这是一个基于谢小树「核心需求探索」课程内容的个人觉察工具。</p>
-        <p>数据全部存在你的手机/浏览器本地，不会上传到任何服务器。</p>
+        <p>数据默认只存在手机/浏览器本地；只有你主动点击同步时，指定记录才会上传到私人 GitHub 资料库。</p>
         <p>小树模式下的回应基于课程内容推断，非本人观点。</p>
       </div>
     </div>
@@ -489,7 +512,7 @@
 
   <script src="config.js?v=24"></script>
   <script src="xiaoshu-prompt.js?v=23"></script>
-  <script src="app.js?v=37"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>
 

@@ -21,6 +21,9 @@ const App = {
   // 洗牌队列
   sparkleQueue: [],
   sparkleQueueIndex: 0,
+  // 手机上传到电脑资料库的同步状态
+  syncState: {},
+  verifiedPrivateRepos: {},
 
   // 情绪颜色区数据（来自情绪盒子）
   emotionZones: {
@@ -73,12 +76,14 @@ const App = {
       const reverseRaw = localStorage.getItem("xs_free_diaries");
       const mode = localStorage.getItem("xs_mode");
       const people = localStorage.getItem("xs_people");
+      const syncState = localStorage.getItem("xs_sync_state");
       if (chat) this.currentChat = JSON.parse(chat);
       if (diaries) this.diaries = JSON.parse(diaries);
       if (moodDiaries) this.moodDiaries = JSON.parse(moodDiaries);
       if (reverseRaw) this.reverseDiaries = JSON.parse(reverseRaw);
       if (mode) this.currentMode = mode;
       if (people) this.people = JSON.parse(people);
+      if (syncState) this.syncState = JSON.parse(syncState);
 
       // 迁移：旧版本中 source 为 "my" 的情绪日记在 xs_diaries 里，迁移到 xs_mood_diaries
       const migratedMy = this.diaries.filter(d => d.source === "my");
@@ -116,6 +121,7 @@ const App = {
       localStorage.setItem("xs_free_diaries", JSON.stringify(this.reverseDiaries));
       localStorage.setItem("xs_mode", this.currentMode);
       localStorage.setItem("xs_people", JSON.stringify(this.people));
+      localStorage.setItem("xs_sync_state", JSON.stringify(this.syncState));
     } catch (e) {
       console.error("保存数据失败", e);
       this.showToast("本地存储已满，请清理数据");
@@ -1019,6 +1025,7 @@ ${historySummary}`;
       const card = document.createElement("div");
       card.className = "diary-card";
       card.dataset.id = String(d.id);
+      const syncEntry = { type: "reverse", folder: "反向选择", record: d };
 
       const titleDisplay = d.title || (new Date(d.createdAt).toLocaleDateString("zh-CN") + " " + ((d.trigger || "反向选择").slice(0, 20)));
 
@@ -1043,6 +1050,7 @@ ${historySummary}`;
             <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
           </div>
           <div class="diary-card-actions">
+            ${this.syncButtonHtml(syncEntry)}
             <button class="btn-text" onclick="App.exportReverseDiary(${d.id})">📤 导出</button>
             <button class="btn-text danger" onclick="App.deleteReverseDiary(${d.id})">删除</button>
           </div>
@@ -1425,6 +1433,7 @@ ${historySummary}`;
       const card = document.createElement("div");
       card.className = "diary-card";
       card.dataset.id = String(d.id);
+      const syncEntry = { type: "awareness", folder: "觉察日记", record: d };
 
       const hasSteps = d.steps && d.steps.event;
       let contentHtml = "";
@@ -1455,6 +1464,7 @@ ${historySummary}`;
             <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
           </div>
           <div class="diary-card-actions">
+            ${this.syncButtonHtml(syncEntry)}
             <button class="btn-text" onclick="App.exportGuidedDiary(${d.id})">📤 导出</button>
             <button class="btn-text danger" onclick="App.deleteGuidedDiary(${d.id})">删除</button>
           </div>
@@ -1514,6 +1524,321 @@ ${historySummary}`;
 
       list.appendChild(card);
     });
+  },
+
+  // ========== 同步到电脑资料库 ==========
+  getSyncConfig() {
+    const readConfig = (key) => {
+      try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
+    };
+    const own = readConfig("xs_sync_config");
+    const aye = readConfig("aye-config");
+    const inheritedToken = !own.githubToken && aye.githubToken;
+    return {
+      githubToken: own.githubToken || aye.githubToken || "",
+      githubRepo: own.githubRepo || "xranZhao/aye-article-inbox",
+      syncPath: (own.syncPath || "5-小树觉察库").replace(/^\/+|\/+$/g, ""),
+      inheritedToken: Boolean(inheritedToken),
+    };
+  },
+
+  readSyncFormConfig() {
+    return {
+      githubToken: document.getElementById("sync-github-token")?.value.trim() || "",
+      githubRepo: document.getElementById("sync-github-repo")?.value.trim() || "xranZhao/aye-article-inbox",
+      syncPath: (document.getElementById("sync-github-path")?.value.trim() || "5-小树觉察库").replace(/^\/+|\/+$/g, ""),
+    };
+  },
+
+  saveSyncSettings() {
+    const config = this.readSyncFormConfig();
+    if (!config.githubToken) { this.showToast("请填写 GitHub Token"); return; }
+    if (!/^[^/\s]+\/[^/\s]+$/.test(config.githubRepo)) { this.showToast("仓库格式应为 用户名/仓库名"); return; }
+    localStorage.setItem("xs_sync_config", JSON.stringify(config));
+    this.renderSyncSettings();
+    this.showToast("电脑同步设置已保存 ✅");
+  },
+
+  renderSyncSettings() {
+    const config = this.getSyncConfig();
+    const tokenInput = document.getElementById("sync-github-token");
+    const repoInput = document.getElementById("sync-github-repo");
+    const pathInput = document.getElementById("sync-github-path");
+    if (tokenInput) tokenInput.value = config.githubToken;
+    if (repoInput) repoInput.value = config.githubRepo;
+    if (pathInput) pathInput.value = config.syncPath;
+
+    const entries = this.getSyncEntries();
+    const pending = entries.filter(entry => this.getEntrySyncStatus(entry) !== "synced").length;
+    const statusEl = document.getElementById("sync-status");
+    if (statusEl) {
+      const sourceText = config.inheritedToken ? "已读取阿野写作的 GitHub Token；" : "";
+      statusEl.textContent = `${sourceText}共 ${entries.length} 条可同步记录，其中 ${pending} 条待上传。`;
+    }
+    const uploadAllBtn = document.getElementById("sync-upload-all-btn");
+    if (uploadAllBtn) {
+      uploadAllBtn.textContent = entries.length === 0
+        ? "暂无可同步记录"
+        : (pending > 0 ? `☁️ 上传全部未同步记录（${pending}）` : "✅ 所有记录已同步");
+      uploadAllBtn.disabled = pending === 0;
+    }
+  },
+
+  getSyncEntries() {
+    const awareness = this.diaries
+      .filter(d => d.source === "guided" && (d.category || d.steps?.category) !== "happy")
+      .map(record => ({ type: "awareness", folder: "觉察日记", record }));
+    const reverse = this.reverseDiaries.map(record => ({ type: "reverse", folder: "反向选择", record }));
+    const happy = this.getHappyDiaries().map(record => ({ type: "happy", folder: "快乐治愈", record }));
+    return [...awareness, ...reverse, ...happy];
+  },
+
+  findSyncEntry(type, id) {
+    return this.getSyncEntries().find(entry => entry.type === type && String(entry.record.id) === String(id));
+  },
+
+  syncStateKey(type, id) {
+    return `${type}:${id}`;
+  },
+
+  textHash(text) {
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16).padStart(8, "0");
+  },
+
+  formatSyncMarkdown(entry) {
+    const d = entry.record;
+    const createdDate = new Date(d.createdAt || Date.now());
+    const createdAt = Number.isNaN(createdDate.getTime()) ? new Date().toISOString() : createdDate.toISOString();
+    const title = String(d.title || (entry.type === "reverse" ? "反向选择" : "未命名")).replace(/[\r\n]+/g, " ").trim();
+    const meta = [
+      "---",
+      "schemaVersion: 1",
+      `id: ${JSON.stringify(String(d.id))}`,
+      `type: ${JSON.stringify(entry.type)}`,
+      `typeLabel: ${JSON.stringify(entry.folder)}`,
+      `title: ${JSON.stringify(title)}`,
+      `createdAt: ${JSON.stringify(createdAt)}`,
+      "sourceApp: \"小树觉察室\"",
+      "---",
+      "",
+      `# ${title}`,
+      "",
+    ];
+    const section = (label, value) => [`## ${label}`, "", String(value || "（未记录）").trim() || "（未记录）", ""];
+
+    if (entry.type === "reverse") {
+      return [...meta,
+        ...section("触发", `情绪强度：${d.triggerIntensity ?? "-"}\n\n${d.trigger || "（未记录）"}`),
+        ...section("旧程序", d.oldProgram),
+        ...section("反向选择", d.newChoice),
+        ...section("结果", `情绪强度：${d.resultIntensity ?? "-"}\n\n${d.result || "（未记录）"}`),
+        ...section("情绪变化", `${d.triggerIntensity ?? "-"} → ${d.resultIntensity ?? "-"}`),
+        ...section("小树见证", d.feedback),
+      ].join("\n").trim() + "\n";
+    }
+
+    const steps = d.steps || {};
+    const defenseLabel = entry.type === "happy" ? "感受方式" : "防御方式";
+    const lines = [...meta];
+    if (entry.type === "happy") lines.push(...section("金句", d.aiSummary || this.quoteFor(d)));
+    lines.push(
+      ...section("情绪事件", steps.event || d.content),
+      ...section("身心感受", steps.feeling),
+      ...section(defenseLabel, steps.defense),
+      ...section("延展模型", steps.extend),
+      ...section("小树回应", d.feedback),
+    );
+    return lines.join("\n").trim() + "\n";
+  },
+
+  getEntrySyncStatus(entry) {
+    const state = this.syncState[this.syncStateKey(entry.type, entry.record.id)] || {};
+    if (state.status === "uploading") return "uploading";
+    const currentHash = this.textHash(this.formatSyncMarkdown(entry));
+    if (state.status === "synced" && state.hash === currentHash) return "synced";
+    if (state.status === "failed") return "failed";
+    return "pending";
+  },
+
+  syncButtonLabel(entry) {
+    const status = this.getEntrySyncStatus(entry);
+    if (status === "uploading") return "⬆️ 上传中…";
+    if (status === "synced") return "✅ 已同步";
+    if (status === "failed") return "❌ 重试上传";
+    return "☁️ 上传到电脑";
+  },
+
+  syncButtonHtml(entry) {
+    const id = String(entry.record.id).replace(/[^\w-]/g, "");
+    const status = this.getEntrySyncStatus(entry);
+    const disabled = status === "uploading" || status === "synced";
+    return `<button class="btn-text sync-entry-btn" data-sync-type="${entry.type}" data-sync-id="${id}" ${disabled ? "disabled" : ""} onclick="event.stopPropagation();App.uploadSyncEntry('${entry.type}','${id}')">${this.syncButtonLabel(entry)}</button>`;
+  },
+
+  refreshSyncButtons() {
+    document.querySelectorAll(".sync-entry-btn").forEach(btn => {
+      const entry = this.findSyncEntry(btn.dataset.syncType, btn.dataset.syncId);
+      if (!entry) return;
+      const status = this.getEntrySyncStatus(entry);
+      btn.textContent = this.syncButtonLabel(entry);
+      btn.disabled = status === "uploading" || status === "synced";
+    });
+    this.renderSyncSettings();
+  },
+
+  syncRemotePath(entry, config) {
+    let date = new Date(entry.record.createdAt || Date.now());
+    if (Number.isNaN(date.getTime())) date = new Date();
+    const year = String(date.getFullYear());
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    return `${config.syncPath}/${entry.folder}/${year}/${month}/${entry.record.id}.md`;
+  },
+
+  utf8ToBase64(text) {
+    const bytes = new TextEncoder().encode(text);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  },
+
+  async getGitHubFileSha(config, remotePath) {
+    const safePath = remotePath.split("/").map(encodeURIComponent).join("/");
+    const response = await fetch(`https://api.github.com/repos/${config.githubRepo}/contents/${safePath}`, {
+      headers: { "Authorization": `Bearer ${config.githubToken}`, "Accept": "application/vnd.github+json" },
+    });
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || `读取远端文件失败 (${response.status})`);
+    }
+    return (await response.json()).sha;
+  },
+
+  async ensurePrivateSyncRepo(config) {
+    const verificationKey = `${config.githubRepo}:${this.textHash(config.githubToken)}`;
+    if (this.verifiedPrivateRepos[verificationKey]) return;
+    const response = await fetch(`https://api.github.com/repos/${config.githubRepo}`, {
+      headers: { "Authorization": `Bearer ${config.githubToken}`, "Accept": "application/vnd.github+json" },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || `连接仓库失败 (${response.status})`);
+    if (!data.private) throw new Error("目标仓库不是 Private，已拒绝同步隐私记录");
+    this.verifiedPrivateRepos[verificationKey] = true;
+  },
+
+  async putSyncFile(config, remotePath, markdown, knownExisting) {
+    const safePath = remotePath.split("/").map(encodeURIComponent).join("/");
+    const apiUrl = `https://api.github.com/repos/${config.githubRepo}/contents/${safePath}`;
+    let sha = knownExisting ? await this.getGitHubFileSha(config, remotePath) : null;
+    const send = () => fetch(apiUrl, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${config.githubToken}`,
+        "Content-Type": "application/json",
+        "Accept": "application/vnd.github+json",
+      },
+      body: JSON.stringify({
+        message: `同步小树记录：${remotePath.split("/").pop()}`,
+        content: this.utf8ToBase64(markdown),
+        ...(sha ? { sha } : {}),
+      }),
+    });
+
+    let response = await send();
+    // 更换设备或清除本地状态后，远端文件可能已存在；读取 SHA 后重试即可
+    if (response.status === 422 && !sha) {
+      sha = await this.getGitHubFileSha(config, remotePath);
+      if (sha) response = await send();
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || `上传失败 (${response.status})`);
+    }
+  },
+
+  async uploadSyncEntry(type, id, options = {}) {
+    const entry = this.findSyncEntry(type, id);
+    if (!entry) { if (!options.silent) this.showToast("找不到这条记录"); return false; }
+    const config = this.getSyncConfig();
+    if (!config.githubToken) {
+      if (!options.silent) { this.showToast("请先在设置中填写 GitHub Token"); this.switchTab("settings"); }
+      return false;
+    }
+
+    const key = this.syncStateKey(type, id);
+    const previous = this.syncState[key] || {};
+    const markdown = this.formatSyncMarkdown(entry);
+    const remotePath = this.syncRemotePath(entry, config);
+    this.syncState[key] = { ...previous, status: "uploading", remotePath, error: "" };
+    localStorage.setItem("xs_sync_state", JSON.stringify(this.syncState));
+    if (options.refresh !== false) this.refreshSyncButtons();
+
+    try {
+      await this.ensurePrivateSyncRepo(config);
+      await this.putSyncFile(config, remotePath, markdown, Boolean(previous.remotePath));
+      this.syncState[key] = {
+        status: "synced",
+        hash: this.textHash(markdown),
+        remotePath,
+        uploadedAt: new Date().toISOString(),
+        error: "",
+      };
+      localStorage.setItem("xs_sync_state", JSON.stringify(this.syncState));
+      if (!options.silent) this.showToast("已上传到电脑资料库 ☁️");
+      if (options.refresh !== false) this.refreshSyncButtons();
+      return true;
+    } catch (error) {
+      this.syncState[key] = { ...previous, status: "failed", remotePath, error: error.message };
+      localStorage.setItem("xs_sync_state", JSON.stringify(this.syncState));
+      console.error("同步记录失败", error);
+      if (!options.silent) this.showToast(`上传失败：${error.message}`);
+      if (options.refresh !== false) this.refreshSyncButtons();
+      return false;
+    }
+  },
+
+  async uploadAllPendingEntries() {
+    const config = this.getSyncConfig();
+    if (!config.githubToken) { this.showToast("请先填写并保存 GitHub Token"); return; }
+    const pending = this.getSyncEntries().filter(entry => this.getEntrySyncStatus(entry) !== "synced");
+    if (pending.length === 0) { this.showToast("所有记录都已同步 ✅"); return; }
+    if (!confirm(`确定上传 ${pending.length} 条未同步记录到私人电脑资料库吗？`)) return;
+
+    const btn = document.getElementById("sync-upload-all-btn");
+    if (btn) btn.disabled = true;
+    let success = 0;
+    for (let i = 0; i < pending.length; i++) {
+      if (btn) btn.textContent = `上传中 ${i + 1} / ${pending.length}`;
+      if (await this.uploadSyncEntry(pending[i].type, pending[i].record.id, { silent: true, refresh: false })) success++;
+    }
+    if (btn) btn.disabled = false;
+    this.renderDiaries();
+    this.renderReverseDiaries();
+    this.refreshSyncButtons();
+    this.showToast(`同步完成：成功 ${success} 条，失败 ${pending.length - success} 条`);
+  },
+
+  async testSyncConnection() {
+    const config = this.readSyncFormConfig();
+    if (!config.githubToken) { this.showToast("请先填写 GitHub Token"); return; }
+    const statusEl = document.getElementById("sync-status");
+    if (statusEl) statusEl.textContent = "正在连接私人仓库…";
+    try {
+      await this.ensurePrivateSyncRepo(config);
+      if (statusEl) statusEl.textContent = `✅ 已连接私人仓库 ${config.githubRepo}`;
+      this.showToast("私人仓库连接成功 ✅");
+    } catch (error) {
+      if (statusEl) statusEl.textContent = `❌ ${error.message}`;
+      this.showToast(`连接失败：${error.message}`);
+    }
   },
 
   // ========== 导出 ==========
@@ -2084,6 +2409,7 @@ ${historySummary}`;
     if (apiKeyInput) apiKeyInput.value = CONFIG.API_KEY;
     if (modelInput) modelInput.value = CONFIG.MODEL;
     if (baseUrlInput) baseUrlInput.value = CONFIG.BASE_URL;
+    this.renderSyncSettings();
     this.checkReorganizeSection();
   },
 
@@ -2132,11 +2458,14 @@ ${historySummary}`;
     localStorage.removeItem("xs_happy_reorganized");
     localStorage.removeItem("xs_sparkle_excluded_people");
     localStorage.removeItem("xs_sparkle_merge_map");
+    localStorage.removeItem("xs_sync_state");
+    localStorage.removeItem("xs_sync_config");
     this.currentChat = [];
     this.diaries = [];
     this.moodDiaries = [];
     this.reverseDiaries = [];
     this.people = [];
+    this.syncState = {};
     this.currentMode = "xiaoshu";
     this.saveData();
     location.reload();
@@ -2638,6 +2967,7 @@ ${obsText}${ctInfo}
         if (newText && newText !== (diary.aiSummary || diary.title)) {
           diary.aiSummary = newText;
           this.saveData();
+          this.refreshSyncButtons();
           this.showToast("金句已更新 ✨");
         }
       };
@@ -2665,6 +2995,7 @@ ${obsText}${ctInfo}
 
     const steps = diary.steps || {};
     const defenseLabel = diary.category === "happy" || steps.category === "happy" ? "感受方式" : "防御方式";
+    const syncEntry = { type: "happy", folder: "快乐治愈", record: diary };
 
     let html = `
       <div class="sparkle-detail-meta">
@@ -2684,6 +3015,7 @@ ${obsText}${ctInfo}
     if (diary.feedback) {
       html += `<div class="sparkle-detail-feedback"><span class="sparkle-detail-feedback-label">🌱 小树回应</span><div class="sparkle-detail-feedback-body">${this.markdownToHtml(diary.feedback)}</div></div>`;
     }
+    html += `<div class="diary-card-actions">${this.syncButtonHtml(syncEntry)}</div>`;
 
     detailBody.innerHTML = html;
   },
@@ -2720,11 +3052,13 @@ ${obsText}${ctInfo}
       item.className = "sparkle-browse-item";
       const quote = this.quoteFor(diary);
       const dateStr = new Date(diary.createdAt).toLocaleDateString("zh-CN");
+      const syncEntry = { type: "happy", folder: "快乐治愈", record: diary };
 
       item.innerHTML = `
         <div class="sparkle-browse-item-quote">${this.escapeHtml(quote)}</div>
         <div class="sparkle-browse-item-meta">
           <span>${dateStr}</span>
+          ${this.syncButtonHtml(syncEntry)}
         </div>
       `;
 
@@ -2930,6 +3264,12 @@ ${obsText}${ctInfo}
     if (clearDataBtn) clearDataBtn.addEventListener("click", () => this.clearAllData());
     const clearChatBtn = document.getElementById("clear-chat-btn");
     if (clearChatBtn) clearChatBtn.addEventListener("click", () => this.clearChat());
+    const saveSyncBtn = document.getElementById("save-sync-settings-btn");
+    if (saveSyncBtn) saveSyncBtn.addEventListener("click", () => this.saveSyncSettings());
+    const testSyncBtn = document.getElementById("test-sync-btn");
+    if (testSyncBtn) testSyncBtn.addEventListener("click", () => this.testSyncConnection());
+    const uploadAllSyncBtn = document.getElementById("sync-upload-all-btn");
+    if (uploadAllSyncBtn) uploadAllSyncBtn.addEventListener("click", () => this.uploadAllPendingEntries());
     // 导入闪光数据
     const importDataBtn = document.getElementById("import-data-btn");
     const importStatus = document.getElementById("import-status");
@@ -3077,7 +3417,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=24").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=25").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
