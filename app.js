@@ -1,4 +1,4 @@
-// 小树觉察室 - 主逻辑
+// 阿野觉察室 - 主逻辑
 
 const App = {
   currentMode: "normal",
@@ -139,7 +139,7 @@ const App = {
     this.currentMode = mode;
     const btn = document.getElementById("mode-switch");
     if (mode === "xiaoshu") {
-      btn.textContent = "🌱 小树模式";
+      btn.textContent = "🌱 阿野模式";
       btn.classList.add("active");
       document.body.classList.add("xiaoshu-mode");
     } else {
@@ -461,7 +461,7 @@ const App = {
     if (match) {
       document.getElementById("pattern-alert").style.display = "block";
       document.getElementById("pattern-alert").innerHTML =
-        `🌱 小树注意到：你在 <strong>${match.date}</strong> 的日记里也有过类似的感觉——"${this.escapeHtml(match.snippet)}"。这可能是你的一个<strong>强迫性重复模式</strong>。<br><br><a onclick="App.viewDiary(${match.id})">📖 回顾那篇日记：《${this.escapeHtml(match.title)}》</a>`;
+        `🌱 阿野注意到：你在 <strong>${match.date}</strong> 的日记里也有过类似的感觉——"${this.escapeHtml(match.snippet)}"。这可能是你的一个<strong>强迫性重复模式</strong>。<br><br><a onclick="App.viewDiary(${match.id})">📖 回顾那篇日记：《${this.escapeHtml(match.title)}》</a>`;
     }
 
     // 检查 API Key
@@ -474,7 +474,7 @@ const App = {
     // 显示进度条
     const fbLabel = document.getElementById("summary-feedback-label");
     const fbBody = document.getElementById("summary-feedback");
-    fbLabel.textContent = "🌱 小树正在感受你的日记...";
+    fbLabel.textContent = "🌱 阿野正在感受你的日记...";
     fbBody.innerHTML = `
       <div class="feedback-progress">
         <div class="fp-bar"><div class="fp-fill" id="fp-fill"></div></div>
@@ -489,7 +489,7 @@ const App = {
         progress += Math.random() * 15 + 5; // 5-20% per tick
         if (progress > 90) progress = 90;
         document.getElementById("fp-fill").style.width = progress + "%";
-        const messages = ["连接中...", "小树在读你的情绪事件...", "小树在体会你的感受...", "小树在看你的防御方式...", "小树在连接你的过去..."];
+        const messages = ["连接中...", "阿野在读你的情绪事件...", "阿野在体会你的感受...", "阿野在看你的防御方式...", "阿野在连接你的过去..."];
         const idx = Math.min(Math.floor(progress / 20), messages.length - 1);
         document.getElementById("fp-text").textContent = messages[idx];
         progressTimer = setTimeout(advanceProgress, 600 + Math.random() * 800);
@@ -504,13 +504,13 @@ const App = {
       document.getElementById("fp-fill").style.width = "100%";
       document.getElementById("fp-text").textContent = "完成 ✓";
       setTimeout(() => {
-        fbLabel.textContent = "🌱 小树回应";
+        fbLabel.textContent = "🌱 阿野回应";
         fbBody.innerHTML = this.markdownToHtml(feedback);
       }, 400);
     } catch (err) {
       clearTimeout(progressTimer);
       console.error(err);
-      fbLabel.textContent = "🌱 小树回应（获取失败）";
+      fbLabel.textContent = "🌱 阿野回应（获取失败）";
       fbBody.innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}<br><br>请检查：<br>1. ⚙️ 设置页 API Key 是否正确<br>2. 网络连接是否正常<br>3. API 额度是否用完<br><br>修复后点「重新来过」再试一次。</div>`;
     }
   },
@@ -663,7 +663,7 @@ const App = {
 
     const prompt = `这是我的觉察日记。请先用反移情的技术白描我的感受——不是安慰我，也不是分析我，就是让我看到"原来我是这样的感觉"。一两句就够了。
 
-然后再用你（谢小树）的视角，调用你课程中的具体模型和框架，帮我看到我看不到的东西。可以尖锐，可以直接引用你课程里的概念和金句。不要泛泛而谈，要具体到我的文本。看到强迫性重复就直说，看到防御机制就命名它。
+然后再用你（阿野）的视角，调用谢小树课程中的具体模型和框架，帮我看到我看不到的东西。可以尖锐，可以直接引用课程里的概念和金句。不要泛泛而谈，要具体到我的文本。看到强迫性重复就直说，看到防御机制就命名它。
 
 ${today} 的记录：
 
@@ -870,7 +870,7 @@ ${historySummary}`;
       return;
     }
 
-    fbLabel.textContent = "🌱 小树正在见证...";
+    fbLabel.textContent = "🌱 阿野正在见证...";
     fbBody.innerHTML = `
       <div class="feedback-progress">
         <div class="fp-bar"><div class="fp-fill" id="fp-fill"></div></div>
@@ -886,7 +886,7 @@ ${historySummary}`;
         const fillEl = document.getElementById("fp-fill");
         if (fillEl) fillEl.style.width = progress + "%";
         const textEl = document.getElementById("fp-text");
-        const messages = ["连接中...", "小树在读你的触发事件...", "小树在看你的旧程序...", "小树在感受你的反向选择...", "小树在体会你的结果..."];
+        const messages = ["连接中...", "阿野在读你的触发事件...", "阿野在看你的旧程序...", "阿野在感受你的反向选择...", "阿野在体会你的结果..."];
         const idx = Math.min(Math.floor(progress / 20), messages.length - 1);
         if (textEl) textEl.textContent = messages[idx];
         progressTimer = setTimeout(advanceProgress, 600 + Math.random() * 800);
@@ -902,13 +902,13 @@ ${historySummary}`;
       const textEl = document.getElementById("fp-text");
       if (textEl) textEl.textContent = "完成 ✓";
       setTimeout(() => {
-        fbLabel.textContent = "🌱 小树见证";
+        fbLabel.textContent = "🌱 阿野见证";
         fbBody.innerHTML = this.markdownToHtml(feedback);
       }, 400);
     } catch (err) {
       clearTimeout(progressTimer);
       console.error(err);
-      fbLabel.textContent = "🌱 小树见证（获取失败）";
+      fbLabel.textContent = "🌱 阿野见证（获取失败）";
       fbBody.innerHTML = `<div style="color:#c45c5c;padding:12px;">${this.escapeHtml(err.message)}<br><br>请检查：<br>1. ⚙️ 设置页 API Key 是否正确<br>2. 网络连接是否正常<br>3. API 额度是否用完<br><br>修复后点「重新来过」再试一次。</div>`;
     }
   },
@@ -963,7 +963,7 @@ ${historySummary}`;
   },
 
   async callReverseWitness(steps, triggerIntensity, resultIntensity) {
-    const prompt = `这是我的内化体验记录。在我用新程序处理事情的时候，请用小树的视角做见证。
+    const prompt = `这是我的内化体验记录。在我用新程序处理事情的时候，请用阿野的视角做见证。
 在我写的具体细节里，帮我轻轻地聚焦我做到了什么，如何做到的，就像帮我把这个证据捡起来，放在手里。不用解释你在做什么，直接开始。
 
 【触发】${steps.trigger}
@@ -1052,7 +1052,7 @@ ${historySummary}`;
             <div class="rs-line"><span class="s-label">情绪变化</span> ${d.triggerIntensity} → ${d.resultIntensity}</div>
           </div>
           <div class="diary-feedback">
-            <div class="feedback-label">🌱 小树见证</div>
+            <div class="feedback-label">🌱 阿野见证</div>
             <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
           </div>
           <div class="diary-card-actions">
@@ -1089,7 +1089,7 @@ ${historySummary}`;
     text += `【我选择了反向】\n${d.newChoice}\n\n`;
     text += `【结果】(${d.resultIntensity})\n${d.result}\n\n`;
     text += `【情绪变化】${d.triggerIntensity} → ${d.resultIntensity}\n\n`;
-    text += `【🌱 小树见证】\n${d.feedback}\n`;
+    text += `【🌱 阿野见证】\n${d.feedback}\n`;
     this.downloadFile(filename, text);
   },
 
@@ -1466,7 +1466,7 @@ ${historySummary}`;
         <div class="diary-body">
           ${contentHtml}
           <div class="diary-feedback">
-            <div class="feedback-label">🌱 小树回应</div>
+            <div class="feedback-label">🌱 阿野回应</div>
             <div class="feedback-body">${this.markdownToHtml(d.feedback)}</div>
           </div>
           <div class="diary-card-actions">
@@ -1629,7 +1629,7 @@ ${historySummary}`;
       `typeLabel: ${JSON.stringify(entry.folder)}`,
       `title: ${JSON.stringify(title)}`,
       `createdAt: ${JSON.stringify(createdAt)}`,
-      "sourceApp: \"小树觉察室\"",
+      "sourceApp: \"阿野觉察室\"",
       "---",
       "",
       `# ${title}`,
@@ -1644,7 +1644,7 @@ ${historySummary}`;
         ...section("反向选择", d.newChoice),
         ...section("结果", `情绪强度：${d.resultIntensity ?? "-"}\n\n${d.result || "（未记录）"}`),
         ...section("情绪变化", `${d.triggerIntensity ?? "-"} → ${d.resultIntensity ?? "-"}`),
-        ...section("小树见证", d.feedback),
+        ...section("阿野见证", d.feedback),
       ].join("\n").trim() + "\n";
     }
 
@@ -1657,7 +1657,7 @@ ${historySummary}`;
       ...section("身心感受", steps.feeling),
       ...section(defenseLabel, steps.defense),
       ...section("延展模型", steps.extend),
-      ...section("小树回应", d.feedback),
+      ...section("阿野回应", d.feedback),
     );
     return lines.join("\n").trim() + "\n";
   },
@@ -1752,7 +1752,7 @@ ${historySummary}`;
         "Accept": "application/vnd.github+json",
       },
       body: JSON.stringify({
-        message: `同步小树记录：${remotePath.split("/").pop()}`,
+        message: `同步阿野记录：${remotePath.split("/").pop()}`,
         content: this.utf8ToBase64(markdown),
         ...(sha ? { sha } : {}),
       }),
@@ -1858,7 +1858,7 @@ ${historySummary}`;
     } else {
       text += `${d.content}\n\n`;
     }
-    text += `【🌱 小树回应】\n${d.feedback}\n`;
+    text += `【🌱 阿野回应】\n${d.feedback}\n`;
     this.downloadFile(filename, text);
   },
 
@@ -1922,7 +1922,7 @@ ${historySummary}`;
     // 以最近一个周五 0:00 为终点，往前7天
     const fridayEnd = this.getFridayStart(Date.now());
     const weekStart = fridayEnd - 7 * 24 * 60 * 60 * 1000;
-    lines.push(`# 小树觉察室周报`);
+    lines.push(`# 阿野觉察室周报`);
     lines.push(`生成时间：${now}`);
     lines.push(`时间范围：${new Date(weekStart).toLocaleString("zh-CN")} - ${new Date(fridayEnd).toLocaleString("zh-CN")}`);
     lines.push(`---`);
@@ -2071,7 +2071,7 @@ ${historySummary}`;
     const lines = [];
     const now = new Date().toLocaleString("zh-CN");
 
-    lines.push(`# 小树觉察室 全部记录`);
+    lines.push(`# 阿野觉察室 全部记录`);
     lines.push(`生成时间：${now}`);
     lines.push(`---`);
     lines.push("");
@@ -2253,7 +2253,7 @@ ${historySummary}`;
       lines.push(`感受方式：${steps.defense || ""}`);
       lines.push(`延展模型：${steps.extend || ""}`);
       if (d.feedback) {
-        lines.push(`小树回应：${d.feedback}`);
+        lines.push(`阿野回应：${d.feedback}`);
       }
       lines.push("");
     });
@@ -2284,7 +2284,7 @@ ${historySummary}`;
       let currentField = "";
       let bodyStart = false;
 
-      const fieldKeyMap = { "情绪事件": "event", "身心感受": "feeling", "感受方式": "defense", "延展模型": "extend", "小树回应": "feedback" };
+      const fieldKeyMap = { "情绪事件": "event", "身心感受": "feeling", "感受方式": "defense", "延展模型": "extend", "小树回应": "feedback", "阿野回应": "feedback" };
 
       for (const line of lines) {
         if (line.startsWith("## ")) continue;
@@ -2300,7 +2300,7 @@ ${historySummary}`;
         if (!bodyStart) continue;
 
         // 命中字段名 → 切换当前字段，并收取本行冒号后的首段内容
-        const fieldMatch = line.match(/^(情绪事件|身心感受|感受方式|延展模型|小树回应)：(.*)$/);
+        const fieldMatch = line.match(/^(情绪事件|身心感受|感受方式|延展模型|小树回应|阿野回应)：(.*)$/);
         if (fieldMatch) {
           currentField = fieldKeyMap[fieldMatch[1]];
           const val = (fieldMatch[2] || "").trim();
@@ -3009,7 +3009,7 @@ ${historySummary}`;
     if (this.people.length >= 4) {
       document.getElementById("over-analyze-warning").style.display = "block";
       document.getElementById("over-analyze-warning").innerHTML =
-        "🌱 小树轻轻问：你在观察这么多人的时候，有没有可能想通过分析别人，来转移对自我的觉察？也许可以去觉察日记那边写一篇。分析功能依然能用。";
+        "🌱 阿野轻轻问：你在观察这么多人的时候，有没有可能想通过分析别人，来转移对自我的觉察？也许可以去觉察日记那边写一篇。分析功能依然能用。";
     }
   },
 
@@ -3162,7 +3162,7 @@ ${historySummary}`;
 
     // 男性类型参考（来自人生护航课第18-25节）
     const MALE_TYPES_REF = `
-【小树课程中的男性类型参考】
+【谢小树课程中的男性类型参考】
 - 妈宝男（隐形/大孝子型）：与妈妈共生的生存模式，善于摸女性情绪，永远有人兜底
 - 巨婴男（隐形型）：心智停留在偏执分裂位，用"好坏/三观正不正"评价一切
 - 回避型依恋男：真正回避的不是冲突，而是亲密的感觉和靠近的愿望
@@ -3171,7 +3171,7 @@ ${historySummary}`;
 - 富二代/精英男：镜映失败、看不清自己、需要"养成系"伴侣
 - 离异男：离婚对男人是"总结教训"（防御更高），核心需求是钱`;
 
-    const prompt = `你是谢小树。你正在帮用户分析一位她身边的重要他人。
+    const prompt = `你是阿野，一位基于谢小树课程资料工作的觉察助手。你正在帮用户分析一位她身边的重要他人。
 
 你的分析目的不是给不在场的人贴标签，而是**帮助用户理解自己的反移情和关系模式**。
 
@@ -3248,7 +3248,7 @@ ${obsText}${ctInfo}
       this.showToast("分析失败：" + err.message);
     } finally {
       document.getElementById("analyze-person-btn").disabled = false;
-      document.getElementById("analyze-person-btn").textContent = "🌱 小树分析此角色";
+      document.getElementById("analyze-person-btn").textContent = "🌱 阿野分析此角色";
     }
   },
 
@@ -3431,7 +3431,7 @@ ${obsText}${ctInfo}
     `;
 
     if (diary.feedback) {
-      html += `<div class="sparkle-detail-feedback"><span class="sparkle-detail-feedback-label">🌱 小树回应</span><div class="sparkle-detail-feedback-body">${this.markdownToHtml(diary.feedback)}</div></div>`;
+      html += `<div class="sparkle-detail-feedback"><span class="sparkle-detail-feedback-label">🌱 阿野回应</span><div class="sparkle-detail-feedback-body">${this.markdownToHtml(diary.feedback)}</div></div>`;
     }
     html += `<div class="diary-card-actions">${this.syncButtonHtml(syncEntry)}</div>`;
 
@@ -3799,7 +3799,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=26").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=27").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {

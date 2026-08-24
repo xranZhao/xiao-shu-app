@@ -1,12 +1,13 @@
-const CACHE_NAME = "xiao-shu-app-v23";
+const CACHE_NAME = "xiao-shu-app-v24";
 const ASSETS = [
   "/xiao-shu-app/",
   "/xiao-shu-app/index.html",
-  "/xiao-shu-app/style.css?v=35",
-  "/xiao-shu-app/app.js?v=40",
-  "/xiao-shu-app/config.js?v=24",
-  "/xiao-shu-app/xiaoshu-prompt.js?v=23",
-  "/xiao-shu-app/manifest.json?v=1",
+  "/xiao-shu-app/style.css?v=36",
+  "/xiao-shu-app/app.js?v=41",
+  "/xiao-shu-app/config.js?v=25",
+  "/xiao-shu-app/xiaoshu-prompt.js?v=24",
+  "/xiao-shu-app/manifest.json?v=2",
+  "/xiao-shu-app/logo-aye.png",
   "/xiao-shu-app/icon-192.png",
   "/xiao-shu-app/icon-512.png",
   "/xiao-shu-app/audio/hypnosis.mp3",

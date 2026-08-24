@@ -1,11 +1,11 @@
-# 小树觉察室
+# 阿野觉察室
 
 一个基于谢小树「核心需求探索」课程内容的个人觉察 PWA 应用。
 
 ## 功能
 
-- 💬 **双模式对话**：普通助手模式 / 谢小树模式
-- 📝 **觉察日记**：写下日记，获得小树视角的回应
+- 💬 **双模式对话**：普通助手模式 / 阿野模式
+- 📝 **觉察日记**：写下日记，获得阿野视角的回应
 - ⚙️ **本地设置**：可自定义 API Key、模型、API 地址
 - 💾 **本地存储**：对话和日记存在 localStorage，文章草稿和照片存在共享的 IndexedDB
 - 📱 **PWA**：可添加到手机主屏幕，像原生 App 一样使用
@@ -92,7 +92,7 @@ python -m http.server 8080
 MODEL: "deepseek-v4-flash", // 或 deepseek-v4-pro
 ```
 
-### 修改谢小树 system prompt
+### 修改阿野 system prompt
 
 编辑 `xiaoshu-prompt.js` 里的 `XIAOSHU_PROMPT`。
 

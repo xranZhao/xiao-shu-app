@@ -9,7 +9,7 @@ const CONFIG = {
   MODEL: "deepseek-v4-flash",
 
   // 应用配置
-  APP_NAME: "小树觉察室",
+  APP_NAME: "阿野觉察室",
   MAX_HISTORY: 50,
 };
 
