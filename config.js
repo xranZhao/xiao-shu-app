@@ -6,7 +6,7 @@ const CONFIG = {
   // DeepSeek API 配置
   API_KEY: "",  // 请在 App 设置页面填入你的 API Key
   BASE_URL: "https://api.deepseek.com/v1/chat/completions",
-  MODEL: "deepseek-v4-pro",
+  MODEL: "deepseek-v4-flash",
 
   // 应用配置
   APP_NAME: "小树觉察室",
@@ -19,21 +19,25 @@ function loadUserConfig() {
     const saved = localStorage.getItem("xs_user_config");
     if (saved) {
       const user = JSON.parse(saved);
-      // 迁移已停用的历史模型名，避免老用户继续请求 deepseek-chat 导致 API 调用失败
-      if (user.MODEL === "deepseek-chat") {
-        console.warn("检测到已停用的 deepseek-chat，已自动迁移到 deepseek-v4-flash");
+      let configChanged = false;
+      // 迁移 DeepSeek 已停用的历史模型名，避免旧设备继续请求失败
+      if (user.MODEL === "deepseek-chat" || user.MODEL === "deepseek-reasoner") {
+        console.warn(`检测到已停用的 ${user.MODEL}，已自动迁移到 deepseek-v4-flash`);
         user.MODEL = "deepseek-v4-flash";
-        localStorage.setItem("xs_user_config", JSON.stringify(user));
+        configChanged = true;
       }
       // 防手机自动填充：检测被污染的配置并自动纠正
       if (user.MODEL && (user.MODEL.startsWith("sk-") || user.MODEL.length > 40)) {
         console.warn("检测到模型配置被异常填充，已自动纠正");
-        user.MODEL = "deepseek-v4-flash"; // deepseek-chat 已废弃，等价于 v4-flash 非思考模式
+        user.MODEL = "deepseek-v4-flash";
+        configChanged = true;
       }
       if (user.BASE_URL && (user.BASE_URL.startsWith("sk-") || user.BASE_URL.length > 100)) {
         console.warn("检测到 API 地址配置被异常填充，已自动纠正");
         user.BASE_URL = "https://api.deepseek.com/v1/chat/completions";
+        configChanged = true;
       }
+      if (configChanged) localStorage.setItem("xs_user_config", JSON.stringify(user));
       Object.assign(CONFIG, user);
     }
   } catch (e) {

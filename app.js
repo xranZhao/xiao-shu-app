@@ -204,14 +204,42 @@ const App = {
       { role: "system", content: systemPrompt },
       ...this.currentChat.slice(-40).map((m) => ({ role: m.role, content: m.content })),
     ];
+    return this.requestAI({ messages, temperature: 0.8, maxTokens: 4000 });
+  },
+
+  async requestAI({ messages, temperature = 0.8, maxTokens = 4000 }) {
+    if (!CONFIG.API_KEY) throw new Error("尚未设置 DeepSeek API Key，请先到设置页填写");
+
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({ model: CONFIG.MODEL, messages, temperature: 0.8, max_tokens: 4000 }),
+      body: JSON.stringify({
+        model: CONFIG.MODEL,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        // V4 默认开启思考模式；此 App 的对话和短文本任务优先速度与费用
+        thinking: { type: "disabled" },
+      }),
     });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    return data.choices[0].message.content;
+    const responseText = await response.text();
+    let data = null;
+    try {
+      data = responseText ? JSON.parse(responseText) : null;
+    } catch (e) {
+      console.error("解析 DeepSeek 响应失败", e);
+    }
+
+    if (!response.ok) {
+      const apiMessage = data?.error?.message || responseText || "未知错误";
+      throw new Error(`DeepSeek API 错误 (${response.status})：${apiMessage}`);
+    }
+
+    const content = data?.choices?.[0]?.message?.content;
+    if (typeof content !== "string" || !content.trim()) {
+      throw new Error("DeepSeek 返回了空内容，请检查模型配置后重试");
+    }
+    return content;
   },
 
   clearChat() {
@@ -521,22 +549,14 @@ const App = {
 【防御方式】${steps.defense || ""}
 【延展模型】${steps.extend || ""}`;
 
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 500,
-      }),
-    });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    let title = data.choices[0].message.content.trim();
+    let title = (await this.requestAI({
+      messages: [
+        { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.5,
+      maxTokens: 500,
+    })).trim();
     // 去除可能包裹的引号或 markdown 代码块标记
     title = title.replace(/^["'`]+|["'`]+$/g, "").replace(/```/g, "").trim();
     // 宽松匹配：AI 可能附带额外文字，从内容中提取标题格式
@@ -641,25 +661,17 @@ ${today} 的记录：
 【延展模型】${steps.extend}
 ${historySummary}`;
 
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          {
-            role: "system",
-            content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理洞察助手。",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4000,
-      }),
+    return this.requestAI({
+      messages: [
+        {
+          role: "system",
+          content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理洞察助手。",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
+      maxTokens: 4000,
     });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    return data.choices[0].message.content;
   },
 
   async saveGuidedDiary() {
@@ -729,22 +741,14 @@ ${historySummary}`;
 
 只输出金句本身，不要引号，不要任何解释。`;
 
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          { role: "system", content: "你负责忠实摘取用户日记原文中的一句话作为金句，只做轻微顺句，不创作、不升华、不文艺腔。" },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 200,
-      }),
-    });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
+    return (await this.requestAI({
+      messages: [
+        { role: "system", content: "你负责忠实摘取用户日记原文中的一句话作为金句，只做轻微顺句，不创作、不升华、不文艺腔。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.5,
+      maxTokens: 200,
+    })).trim();
   },
 
   // ========== 反向选择 ==========
@@ -927,22 +931,14 @@ ${historySummary}`;
 【我选择了反向】${steps.newChoice || ""}
 【结果】${steps.result || ""}`;
 
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 500,
-      }),
-    });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    let title = data.choices[0].message.content.trim();
+    let title = (await this.requestAI({
+      messages: [
+        { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.5,
+      maxTokens: 500,
+    })).trim();
     title = title.replace(/^["'`]+|["'`]+$/g, "").replace(/```/g, "").trim();
     // 宽松匹配：AI 可能附带额外文字，从内容中提取标题格式
     const match = title.match(/(\d{8}-.+?)(?:\n|$)/) || title.match(/(\d{8}-.+)/);
@@ -964,22 +960,14 @@ ${historySummary}`;
 【结果】${steps.result}
 【情绪变化】${triggerIntensity} → ${resultIntensity}`;
 
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          { role: "system", content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理见证助手。" },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4000,
-      }),
+    return this.requestAI({
+      messages: [
+        { role: "system", content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个温暖的心理见证助手。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
+      maxTokens: 4000,
     });
-    if (!response.ok) { const err = await response.text(); throw new Error(`API 错误 (${response.status}): ${err}`); }
-    const data = await response.json();
-    return data.choices[0].message.content;
   },
 
   async saveReverseDiary() {
@@ -1307,22 +1295,14 @@ ${historySummary}`;
 情绪：${emotion}
 今天的日子：${today}`;
 
-    const response = await fetch(CONFIG.BASE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-      body: JSON.stringify({
-        model: CONFIG.MODEL,
-        messages: [
-          { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.5,
-        max_tokens: 200,
-      }),
-    });
-    if (!response.ok) throw new Error(`API error ${response.status}`);
-    const data = await response.json();
-    let title = data.choices[0].message.content.trim();
+    let title = (await this.requestAI({
+      messages: [
+        { role: "system", content: "你是一个标题总结助手，只输出规定格式的标题，不解释。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.5,
+      maxTokens: 200,
+    })).trim();
     title = title.replace(/^["'\`]+|["'\`]+$/g, "").replace(/\`\`\`/g, "").trim();
     const match = title.match(/(\d{8}-.+?-.+?)(?:\n|$)/) || title.match(/(\d{8}-.+)/);
     if (match) return match[1].trim();
@@ -2112,10 +2092,16 @@ ${historySummary}`;
     let model = document.getElementById("setting-model").value.trim();
     const baseUrl = document.getElementById("setting-base-url").value.trim();
 
+    // DeepSeek 已停用旧模型名，保存时直接迁移，避免等待下次重载
+    if (model === "deepseek-chat" || model === "deepseek-reasoner") {
+      model = "deepseek-v4-flash";
+      document.getElementById("setting-model").value = model;
+    }
+
     // 防手机自动填充：检测模型框是否被填入了 API Key
     if (model.startsWith("sk-") || model.length > 40) {
       console.warn("检测到模型框被异常填充，已自动纠正");
-      model = "deepseek-v4-flash"; // deepseek-chat 已废弃，等价于 v4-flash 非思考模式
+      model = "deepseek-v4-flash";
       document.getElementById("setting-model").value = model;
     }
 
@@ -2494,25 +2480,17 @@ ${obsText}${ctInfo}
     };
 
     try {
-      const response = await fetch(CONFIG.BASE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
-        body: JSON.stringify({
-          model: CONFIG.MODEL,
-          messages: [
-            {
-              role: "system",
-              content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个基于精神分析的识人助手。",
-            },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 4000,
-        }),
+      const raw = await this.requestAI({
+        messages: [
+          {
+            role: "system",
+            content: typeof XIAOSHU_PROMPT !== "undefined" ? XIAOSHU_PROMPT : "你是一个基于精神分析的识人助手。",
+          },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.7,
+        maxTokens: 4000,
       });
-      if (!response.ok) { const err = await response.text(); throw new Error(`API 错误: ${err}`); }
-      const data = await response.json();
-      const raw = data.choices[0].message.content;
       const { title, content } = parseAnalysisResponse(raw);
 
       if (title) p.title = title;
