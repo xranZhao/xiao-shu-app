@@ -3,7 +3,8 @@
 ## 架构
 - 纯前端 PWA，零依赖，原生 HTML/CSS/JS 三大件
 - app.js 是唯一业务逻辑文件（~3000行，别拆），按 `App = {}` 命名空间组织
-- 数据全部 `localStorage`，key 统一 `xs_` 前缀：`xs_chat_history` `xs_diaries` `xs_mood_diaries` `xs_free_diaries` `xs_mode` `xs_people`
+- 觉察数据使用 `localStorage`，key 统一 `xs_` 前缀：`xs_chat_history` `xs_diaries` `xs_mood_diaries` `xs_free_diaries` `xs_mode` `xs_people`
+- 文章工作台为兼容 `aye_article`，共享 IndexedDB `aye-writer/articles`、草稿 `aye-draft` 和配置 `aye-config`；照片体积较大，不要迁入 localStorage
 - AI 直接 `fetch` 调 DeepSeek API（OpenAI 兼容格式），不走任何中间层。所有请求统一在 `callAPI` 系列方法里
 
 ## 不要做

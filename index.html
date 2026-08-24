@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
   <link rel="manifest" href="manifest.json?v=1">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=34">
+  <link rel="stylesheet" href="style.css?v=35">
   <script>
     (function () {
       function setVh() {
@@ -246,57 +246,51 @@
 
     </div>
 
-    <!-- 识人页 -->
-    <div id="tab-people" class="tab-content">
-      <!-- 角色列表 -->
-      <div id="people-list-view" class="people-list-view">
-        <div class="people-toolbar">
-          <button id="add-person-btn" class="btn-primary" style="width:auto;padding:10px 20px;">+ 新增角色</button>
-        </div>
-        <div id="people-list" class="people-list"></div>
-      </div>
+    <!-- 公众号文章上传页 -->
+    <div id="tab-article" class="tab-content article-tab">
+      <main class="article-workbench">
+        <header class="article-workbench-header">
+          <span class="article-kicker">公众号写作</span>
+          <h2>🌿 aye写作</h2>
+          <p>口语化地写，手机负责保存上传，电脑负责优化排版。</p>
+        </header>
 
-      <!-- 角色详情 + 新增/编辑角色表单 -->
-      <div id="person-detail-view" class="person-detail-view" style="display:none;">
-        <div class="person-detail-header">
-          <button id="person-back-btn" class="btn-text">← 返回列表</button>
-        </div>
+        <section class="article-editor-card" aria-labelledby="article-editor-heading">
+          <h3 id="article-editor-heading" class="sr-only">编辑文章</h3>
+          <label class="sr-only" for="article-title">文章标题</label>
+          <input id="article-title" class="article-field" type="text" maxlength="40" placeholder="标题（可留空，AI 会帮你生成）" autocomplete="off">
 
-        <!-- 角色信息区域 -->
-        <div id="person-info-card" class="person-info-card"></div>
+          <label class="sr-only" for="article-workflow-status">文章处理方式</label>
+          <select id="article-workflow-status" class="article-field">
+            <option value="needs_optimization">需要电脑端优化（默认）</option>
+            <option value="final">已定稿，电脑端直接排版</option>
+          </select>
 
-        <!-- 新增记录表单 -->
-        <div class="obs-add-card">
-          <div class="obs-type-row">
-            <button class="obs-type-btn active" data-type="言">💬 言</button>
-            <button class="obs-type-btn" data-type="行">🏃 行</button>
-            <button class="obs-type-btn" data-type="信念">🧠 信念</button>
+          <div class="article-photo-picker">
+            <label class="article-photo-button" for="article-photos">选择封面照片</label>
+            <input id="article-photos" type="file" accept="image/*" multiple>
+            <span id="article-photo-summary">未选择照片</span>
           </div>
-          <textarea id="obs-input" class="obs-input" placeholder="记录你观察到的..." rows="3"></textarea>
-          <div id="countertransfer-reminder" class="ct-reminder">
-            💡 先停一下：他刚才让你产生了什么感觉？10秒体会一下——这个感受是你的，还是他投射给你的？
+          <div id="article-photo-list" class="article-photo-list" aria-live="polite"></div>
+          <p class="article-hint">可附加1～3张候选封面照片，文章与照片会一起上传。</p>
+
+          <label class="sr-only" for="article-editor">文章正文</label>
+          <textarea id="article-editor" class="article-editor" placeholder="开始写点什么…&#10;&#10;口语化地写，想说什么就写什么。"></textarea>
+        </section>
+
+        <button id="article-save-btn" class="article-save-btn">💾 保存并上传</button>
+        <p id="article-upload-status" class="article-upload-status" aria-live="polite"></p>
+
+        <section class="article-library" aria-labelledby="article-library-title">
+          <div class="article-section-title">
+            <h3 id="article-library-title">📄 文章列表</h3>
+            <span id="article-count">0篇</span>
           </div>
-          <button id="add-obs-btn" class="btn-primary">📝 添加记录</button>
-        </div>
-
-        <!-- 观察记录列表 -->
-        <div class="obs-list-label">📋 观察记录 <span id="obs-count"></span></div>
-        <div id="obs-list" class="obs-list"></div>
-
-        <!-- 分析区域 -->
-        <div class="obs-analyze-area">
-          <button id="analyze-person-btn" class="btn-primary">🌱 小树分析此角色</button>
-        </div>
-        <div id="person-analysis-card" class="person-analysis-card" style="display:none;">
-          <div class="analysis-header">🌱 小树分析</div>
-          <div class="analysis-body" id="analysis-body"></div>
-          <div class="analysis-honesty" id="analysis-honesty"></div>
-          <div class="analysis-date" id="analysis-date"></div>
-        </div>
-
-        <!-- 过度分析提醒 -->
-        <div id="over-analyze-warning" class="over-analyze-warning" style="display:none;"></div>
-      </div>
+          <div id="article-list" class="article-list">
+            <div class="article-empty-state">还没有文章，开始写吧 ✨</div>
+          </div>
+        </section>
+      </main>
     </div>
 
     <!-- 设置页 -->
@@ -325,7 +319,7 @@
 
       <div class="settings-card" id="sync-section">
         <h3>☁️ 同步到电脑</h3>
-        <p class="settings-help">将觉察日记、反向选择和快乐治愈小分队上传到私人 GitHub 资料库，供电脑端阿野工作流直接检索。支持单条上传，也支持只上传全部未同步记录。</p>
+        <p class="settings-help">将觉察日记、反向选择和快乐治愈小分队上传到私人 GitHub 资料库，供电脑端阿野工作流直接检索。文章页也复用这里的 Token 和私人仓库。</p>
         <div class="form-group">
           <label>GitHub Token</label>
           <input type="password" id="sync-github-token" placeholder="github_pat_..." autocomplete="off">
@@ -386,9 +380,9 @@
         <span class="tab-icon">💬</span>
         <span class="tab-label">对话</span>
       </button>
-      <button id="nav-people" class="tab-btn">
-        <span class="tab-icon">🔍</span>
-        <span class="tab-label">识人</span>
+      <button id="nav-article" class="tab-btn">
+        <span class="tab-icon">📄</span>
+        <span class="tab-label">文章</span>
       </button>
       <button id="nav-sparkle" class="tab-btn">
         <span class="tab-icon">✨</span>
@@ -512,7 +506,7 @@
 
   <script src="config.js?v=24"></script>
   <script src="xiaoshu-prompt.js?v=23"></script>
-  <script src="app.js?v=39"></script>
+  <script src="app.js?v=40"></script>
 </body>
 </html>
 

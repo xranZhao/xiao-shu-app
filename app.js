@@ -24,6 +24,8 @@ const App = {
   // 手机上传到电脑资料库的同步状态
   syncState: {},
   verifiedPrivateRepos: {},
+  articleDraftTimer: null,
+  articleDatabasePromise: null,
 
   // 情绪颜色区数据（来自情绪盒子）
   emotionZones: {
@@ -56,6 +58,10 @@ const App = {
     this.renderReverseDiaries();
     this.renderSettings();
     this.setupEventListeners();
+    this.initArticleWorkbench().catch((error) => {
+      console.error("初始化文章工作台失败", error);
+      this.setArticleUploadStatus("无法读取本机文章，请退出无痕模式后重试", "error");
+    });
     this.setMode("xiaoshu");
     this.checkWeeklyExportReminder();
 
@@ -213,12 +219,12 @@ const App = {
     return this.requestAI({ messages, temperature: 0.8, maxTokens: 4000 });
   },
 
-  async requestAI({ messages, temperature = 0.8, maxTokens = 4000 }) {
-    if (!CONFIG.API_KEY) throw new Error("尚未设置 DeepSeek API Key，请先到设置页填写");
+  async requestAI({ messages, temperature = 0.8, maxTokens = 4000, apiKey = CONFIG.API_KEY }) {
+    if (!apiKey) throw new Error("尚未设置 DeepSeek API Key，请先到设置页填写");
 
     const response = await fetch(CONFIG.BASE_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${CONFIG.API_KEY}` },
+      headers: { "Content-Type": "application/json; charset=utf-8", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: CONFIG.MODEL,
         messages,
@@ -2471,7 +2477,417 @@ ${historySummary}`;
     location.reload();
   },
 
-  // ========== 识人板块 ==========
+  // ========== 公众号文章工作台 ==========
+  getAyeArticleConfig() {
+    try {
+      return JSON.parse(localStorage.getItem("aye-config") || "{}");
+    } catch {
+      return {};
+    }
+  },
+
+  openArticleDatabase() {
+    if (this.articleDatabasePromise) return this.articleDatabasePromise;
+    this.articleDatabasePromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open("aye-writer", 2);
+      request.onupgradeneeded = (event) => {
+        const database = event.target.result;
+        if (!database.objectStoreNames.contains("articles")) {
+          const store = database.createObjectStore("articles", { keyPath: "id", autoIncrement: true });
+          store.createIndex("filename", "filename", { unique: true });
+          store.createIndex("status", "status");
+          store.createIndex("updatedAt", "updatedAt");
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => {
+        this.articleDatabasePromise = null;
+        reject(request.error || new Error("无法打开文章数据库"));
+      };
+    });
+    return this.articleDatabasePromise;
+  },
+
+  async saveArticleRecord(filename, content, status = "local", extras = {}) {
+    const database = await this.openArticleDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction("articles", "readwrite");
+      const store = transaction.objectStore("articles");
+      const lookup = store.index("filename").get(filename);
+      lookup.onsuccess = () => {
+        store.put({
+          ...(lookup.result || {}),
+          filename,
+          content,
+          status,
+          ...extras,
+          updatedAt: new Date().toISOString(),
+          size: new Blob([content]).size,
+        });
+      };
+      lookup.onerror = () => reject(lookup.error);
+      transaction.oncomplete = () => resolve(filename);
+      transaction.onerror = () => reject(transaction.error);
+    });
+  },
+
+  async getArticleRecords() {
+    const database = await this.openArticleDatabase();
+    return new Promise((resolve, reject) => {
+      const request = database.transaction("articles", "readonly").objectStore("articles").getAll();
+      request.onsuccess = () => resolve(request.result.sort((a, b) =>
+        String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))
+      ));
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async getArticleRecord(filename) {
+    const database = await this.openArticleDatabase();
+    return new Promise((resolve, reject) => {
+      const request = database.transaction("articles", "readonly")
+        .objectStore("articles").index("filename").get(filename);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  async deleteArticleRecord(filename) {
+    const database = await this.openArticleDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction("articles", "readwrite");
+      const store = transaction.objectStore("articles");
+      const request = store.index("filename").get(filename);
+      request.onsuccess = () => {
+        if (request.result) store.delete(request.result.id);
+      };
+      request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  },
+
+  articleDateCode() {
+    const date = new Date();
+    return `${String(date.getFullYear()).slice(2)}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+  },
+
+  normalizeArticleTitle(value) {
+    return String(value || "")
+      .trim()
+      .replace(/\.md$/iu, "")
+      .replace(/[\\/:*?"<>|]/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim();
+  },
+
+  fallbackArticleTitle(content) {
+    const preview = String(content).slice(0, 30).replace(/[\n\r\s]+/gu, " ").trim() || "未命名文章";
+    return `${this.articleDateCode()}_${preview}`;
+  },
+
+  async generateArticleTitle(content) {
+    const ayeConfig = this.getAyeArticleConfig();
+    const apiKey = CONFIG.API_KEY || ayeConfig.deepseekKey || "";
+    if (!apiKey) return null;
+    const raw = await this.requestAI({
+      apiKey,
+      temperature: 0.7,
+      maxTokens: 80,
+      messages: [
+        {
+          role: "system",
+          content: `你是个人IP写作助手。根据文章内容生成文件名格式的标题。\n严格规则：\n1. 格式为 YYMMDD_关键词。\n2. 关键词1至2个，每个2至10个字，用下划线连接。\n3. 抓住核心矛盾或核心事件。\n4. 只返回文件名，不含扩展名、解释、标点或引号。`,
+        },
+        {
+          role: "user",
+          content: `今天日期代码：${this.articleDateCode()}\n\n文章内容：\n${content.slice(0, 2000)}`,
+        },
+      ],
+    });
+    let title = this.normalizeArticleTitle(raw.replace(/^["'`：:\s]+/u, "").replace(/["'`]+$/u, ""));
+    if (!title) return null;
+    if (!/^\d{6}_/u.test(title)) title = `${this.articleDateCode()}_${title.replace(/^\d{6}_?/u, "")}`;
+    return title;
+  },
+
+  readArticlePhoto(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({
+        name: file.name,
+        type: file.type || "image/jpeg",
+        dataUrl: reader.result,
+        size: file.size,
+      });
+      reader.onerror = () => reject(reader.error || new Error(`读取照片失败：${file.name}`));
+      reader.readAsDataURL(file);
+    });
+  },
+
+  setArticleUploadStatus(message, type = "") {
+    const status = document.getElementById("article-upload-status");
+    if (!status) return;
+    status.textContent = message;
+    status.className = `article-upload-status${type ? ` ${type}` : ""}`;
+  },
+
+  renderArticlePhotoSelection() {
+    const input = document.getElementById("article-photos");
+    const summary = document.getElementById("article-photo-summary");
+    const list = document.getElementById("article-photo-list");
+    if (!input || !summary || !list) return;
+    const files = [...input.files];
+    summary.textContent = files.length === 0 ? "未选择照片" : `已选择 ${files.length} 张`;
+    list.innerHTML = files.map(file => `<span class="article-photo-name">${this.escapeHtml(file.name)}</span>`).join("");
+    if (files.length > 3) this.setArticleUploadStatus("最多选择3张候选封面照片", "error");
+    else if (files.length > 0) this.setArticleUploadStatus("照片将在保存文章时一起上传");
+  },
+
+  async initArticleWorkbench() {
+    const editor = document.getElementById("article-editor");
+    if (!editor) return;
+    const draft = localStorage.getItem("aye-draft");
+    if (draft && !editor.value) editor.value = draft;
+    this.renderArticlePhotoSelection();
+    const interrupted = (await this.getArticleRecords()).filter(article => article.status === "uploading");
+    for (const article of interrupted) {
+      await this.saveArticleRecord(article.filename, article.content, "local");
+    }
+    await this.renderArticleList();
+  },
+
+  setupArticleEventListeners() {
+    const saveButton = document.getElementById("article-save-btn");
+    const editor = document.getElementById("article-editor");
+    const photoInput = document.getElementById("article-photos");
+    const list = document.getElementById("article-list");
+    if (saveButton) saveButton.addEventListener("click", () => this.saveCurrentArticle());
+    if (editor) {
+      editor.addEventListener("input", () => {
+        clearTimeout(this.articleDraftTimer);
+        this.articleDraftTimer = setTimeout(() => {
+          if (editor.value.trim()) localStorage.setItem("aye-draft", editor.value);
+          else localStorage.removeItem("aye-draft");
+        }, 1200);
+      });
+    }
+    if (photoInput) photoInput.addEventListener("change", () => this.renderArticlePhotoSelection());
+    if (list) {
+      list.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-article-action]");
+        if (!button) return;
+        const filename = button.dataset.filename;
+        if (button.dataset.articleAction === "upload") this.uploadArticleToGitHub(filename);
+        if (button.dataset.articleAction === "delete") this.confirmDeleteArticle(filename);
+      });
+    }
+  },
+
+  async saveCurrentArticle() {
+    const editor = document.getElementById("article-editor");
+    const titleInput = document.getElementById("article-title");
+    const statusInput = document.getElementById("article-workflow-status");
+    const photoInput = document.getElementById("article-photos");
+    const saveButton = document.getElementById("article-save-btn");
+    if (!editor || !titleInput || !statusInput || !photoInput || !saveButton) return;
+
+    const content = editor.value.trim();
+    if (!content) { this.setArticleUploadStatus("先写一点正文再保存", "error"); return; }
+    if (photoInput.files.length > 3) { this.setArticleUploadStatus("最多选择3张候选封面照片", "error"); return; }
+
+    saveButton.disabled = true;
+    saveButton.textContent = "正在准备文章…";
+    this.setArticleUploadStatus("正在准备标题和文章文件");
+
+    try {
+      let title = this.normalizeArticleTitle(titleInput.value);
+      if (!title) {
+        try {
+          title = await this.generateArticleTitle(content);
+        } catch (error) {
+          console.error("AI生成文章标题失败", error);
+          this.setArticleUploadStatus("AI标题生成失败，已使用正文生成标题");
+        }
+        if (!title) title = this.fallbackArticleTitle(content);
+        titleInput.value = title;
+        titleInput.focus();
+        this.setArticleUploadStatus("标题已生成，请确认或修改后再次点击“保存并上传”");
+        return;
+      }
+      if (!/^\d{6}_/u.test(title)) title = `${this.articleDateCode()}_${title}`;
+      titleInput.value = title;
+      const filename = `${title}.md`;
+
+      saveButton.textContent = "正在读取照片…";
+      const photos = await Promise.all([...photoInput.files].map(file => this.readArticlePhoto(file)));
+      await this.saveArticleRecord(filename, content, "local", {
+        workflowStatus: statusInput.value,
+        photos,
+      });
+      await this.renderArticleList();
+
+      saveButton.textContent = "正在上传…";
+      const uploaded = await this.uploadArticleToGitHub(filename, { silent: true });
+      if (!uploaded) {
+        this.setArticleUploadStatus("文章已保存在手机，上传未成功，可从文章列表重试", "error");
+        return;
+      }
+
+      editor.value = "";
+      titleInput.value = "";
+      photoInput.value = "";
+      localStorage.removeItem("aye-draft");
+      this.renderArticlePhotoSelection();
+      this.setArticleUploadStatus(`已上传：${filename}`, "success");
+      this.showToast("文章已保存并上传 ☁️");
+    } catch (error) {
+      console.error("保存文章失败", error);
+      this.setArticleUploadStatus(`保存失败：${error.message}`, "error");
+    } finally {
+      saveButton.disabled = false;
+      saveButton.textContent = "💾 保存并上传";
+    }
+  },
+
+  async putArticleBase64File(config, remotePath, base64Content, message) {
+    const safePath = remotePath.split("/").map(encodeURIComponent).join("/");
+    const apiUrl = `https://api.github.com/repos/${config.githubRepo}/contents/${safePath}`;
+    const sha = await this.getGitHubFileSha(config, remotePath);
+    const response = await fetch(apiUrl, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${config.githubToken}`,
+        "Content-Type": "application/json",
+        "Accept": "application/vnd.github+json",
+      },
+      body: JSON.stringify({ message, content: base64Content, ...(sha ? { sha } : {}) }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || `上传失败 (${response.status})`);
+    }
+  },
+
+  async uploadArticleToGitHub(filename, options = {}) {
+    const config = this.getSyncConfig();
+    if (!config.githubToken) {
+      if (!options.silent) {
+        this.setArticleUploadStatus("请先在设置中填写 GitHub Token", "error");
+        this.switchTab("settings");
+      }
+      return false;
+    }
+
+    const article = await this.getArticleRecord(filename);
+    if (!article) return false;
+    await this.saveArticleRecord(filename, article.content, "uploading");
+    await this.renderArticleList();
+
+    try {
+      await this.ensurePrivateSyncRepo(config);
+      await this.putArticleBase64File(
+        config,
+        `0-原始文稿/${filename}`,
+        this.utf8ToBase64(article.content),
+        `上传文章原稿：${filename}`
+      );
+
+      const id = filename.replace(/\.md$/iu, "");
+      const photoEntries = [];
+      for (const photo of article.photos || []) {
+        if (typeof photo.dataUrl !== "string" || !photo.dataUrl.includes(",")) continue;
+        const safeName = String(photo.name || "封面照片.jpg").replace(/[\\/:*?"<>|]/gu, "_");
+        const remotePath = `4-素材与封面/${id}/原始照片/${safeName}`;
+        await this.putArticleBase64File(
+          config,
+          remotePath,
+          photo.dataUrl.split(",")[1],
+          `上传封面素材：${id}`
+        );
+        photoEntries.push({ name: safeName, path: remotePath, size: photo.size || 0 });
+      }
+
+      const metadata = {
+        id,
+        title: id.replace(/^\d{6}_/u, ""),
+        status: article.workflowStatus || "needs_optimization",
+        photos: photoEntries,
+        uploadedAt: new Date().toISOString(),
+      };
+      await this.putArticleBase64File(
+        config,
+        `0-原始文稿/${id}.meta.json`,
+        this.utf8ToBase64(JSON.stringify(metadata, null, 2)),
+        `上传文章状态：${id}`
+      );
+
+      await this.saveArticleRecord(filename, article.content, "cloud");
+      await this.renderArticleList();
+      if (!options.silent) {
+        this.setArticleUploadStatus(`已上传：${filename}`, "success");
+        this.showToast("文章上传成功 ☁️");
+      }
+      return true;
+    } catch (error) {
+      await this.saveArticleRecord(filename, article.content, "local");
+      await this.renderArticleList();
+      console.error("上传文章失败", error);
+      if (!options.silent) this.setArticleUploadStatus(`上传失败：${error.message}`, "error");
+      return false;
+    }
+  },
+
+  async renderArticleList() {
+    const list = document.getElementById("article-list");
+    const count = document.getElementById("article-count");
+    if (!list || !count) return;
+    const articles = await this.getArticleRecords();
+    count.textContent = `${articles.length}篇`;
+    if (articles.length === 0) {
+      list.innerHTML = '<div class="article-empty-state">还没有文章，开始写吧 ✨</div>';
+      return;
+    }
+
+    list.innerHTML = articles.map(article => {
+      const filename = String(article.filename || "未命名文章.md");
+      const date = article.updatedAt ? new Date(article.updatedAt).toLocaleString("zh-CN", { hour12: false }) : "时间未知";
+      const size = `${((article.size || 0) / 1024).toFixed(1)}KB`;
+      const statusBadge = article.status === "cloud"
+        ? '<span class="article-badge cloud">☁️ 已同步</span>'
+        : article.status === "uploading"
+          ? '<span class="article-badge uploading">⬆️ 上传中</span>'
+          : '<span class="article-badge">📱 待上传</span>';
+      const workflowBadge = article.workflowStatus === "final"
+        ? '<span class="article-badge cloud">直接排版</span>'
+        : '<span class="article-badge">需要优化</span>';
+      const safeFilename = this.escapeHtml(filename);
+      const disableUpload = article.status === "cloud" || article.status === "uploading";
+      return `
+        <article class="article-item">
+          <div class="article-item-main">
+            <div class="article-filename">${safeFilename}</div>
+            <div class="article-meta">${this.escapeHtml(date)} · ${size}</div>
+          </div>
+          <div class="article-item-footer">
+            <div class="article-status-row">${statusBadge}${workflowBadge}</div>
+            <div class="article-actions">
+              <button class="article-action-btn" data-article-action="upload" data-filename="${safeFilename}" title="重新上传" ${disableUpload ? "disabled" : ""}>☁️</button>
+              <button class="article-action-btn" data-article-action="delete" data-filename="${safeFilename}" title="从手机列表删除">🗑️</button>
+            </div>
+          </div>
+        </article>`;
+    }).join("");
+  },
+
+  async confirmDeleteArticle(filename) {
+    if (!filename || !confirm(`确定从手机文章列表删除“${filename}”吗？\n已上传到私人仓库的原稿不会被删除。`)) return;
+    await this.deleteArticleRecord(filename);
+    await this.renderArticleList();
+    this.showToast("已从手机文章列表删除");
+  },
+
+  // ========== 旧识人数据（界面已下线，保留导出兼容） ==========
   renderPeopleList() {
     const list = document.getElementById("people-list");
     if (!list) return;
@@ -2857,9 +3273,11 @@ ${obsText}${ctInfo}
       this.renderReverseStep();
       this.renderReverseDiaries();
     }
-    // 切换到识人页时渲染角色列表
-    if (tab === "people") {
-      this.renderPeopleList();
+    // 切换到文章页时刷新本地文章列表
+    if (tab === "article") {
+      this.renderArticleList().catch((error) => {
+        console.error("刷新文章列表失败", error);
+      });
     }
     // 切换到闪光页时渲染随机卡片
     if (tab === "sparkle") {
@@ -3097,7 +3515,7 @@ ${obsText}${ctInfo}
     if (modeBtn) modeBtn.addEventListener("click", () => this.toggleMode());
 
     // Tab 切换
-    ["chat", "diary", "sparkle", "people", "settings"].forEach((tab) => {
+    ["chat", "article", "diary", "sparkle", "settings"].forEach((tab) => {
       const btn = document.getElementById(`nav-${tab}`);
       if (btn) btn.addEventListener("click", () => this.switchTab(tab));
     });
@@ -3218,44 +3636,8 @@ ${obsText}${ctInfo}
 
     // 日日记录的颜色区/情绪标签选择已移除，仅保留文字输入
 
-    // ===== 识人板块事件 =====
-    document.getElementById("add-person-btn").addEventListener("click", () => this.showPersonForm());
-    document.getElementById("person-back-btn").addEventListener("click", () => this.closePerson());
-
-    // 观察类型切换
-    document.querySelectorAll(".obs-type-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        document.querySelectorAll(".obs-type-btn").forEach(b => b.classList.remove("active"));
-        e.target.classList.add("active");
-        this.obsType = e.target.dataset.type;
-      });
-    });
-
-    // 添加观察记录
-    document.getElementById("add-obs-btn").addEventListener("click", () => {
-      const p = this.getCurrentPerson();
-      if (!p) return;
-      const input = document.getElementById("obs-input");
-      const content = input.value.trim();
-      if (!content) { this.showToast("请输入观察内容"); return; }
-      p.observations.push({
-        id: Date.now(),
-        type: this.obsType,
-        content,
-        createdAt: Date.now(),
-      });
-      // 若还没有标题，用最新记录本地生成一个
-      if (!p.title) {
-        p.title = this.generatePersonTitleLocal(p);
-      }
-      this.saveData();
-      input.value = "";
-      this.renderPersonDetail();
-      this.showToast("观察记录已添加");
-    });
-
-    // 小树分析
-    document.getElementById("analyze-person-btn").addEventListener("click", () => this.analyzePerson());
+    // 公众号文章工作台
+    this.setupArticleEventListeners();
 
     // 设置
     const saveSettingsBtn = document.getElementById("save-settings-btn");
@@ -3417,7 +3799,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=25").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=26").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {

@@ -1121,7 +1121,361 @@ html, body {
   border-radius: 2px;
 }
 
-/* ====== 识人板块 ====== */
+/* ====== 公众号文章工作台 ====== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.article-tab {
+  background: var(--bg);
+}
+
+.article-workbench {
+  width: 100%;
+  padding: 22px 16px 36px;
+}
+
+.article-workbench-header {
+  margin: 0 2px 20px;
+}
+
+.article-kicker {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--primary-light);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+}
+
+.article-workbench-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: "Noto Serif SC", serif;
+  font-size: 28px;
+  line-height: 1.25;
+  letter-spacing: -0.04em;
+}
+
+.article-workbench-header p {
+  max-width: 28em;
+  margin: 9px 0 0;
+  color: var(--text-light);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.article-editor-card {
+  padding: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.article-field,
+.article-editor {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  outline: none;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.article-field {
+  min-height: 48px;
+  margin-bottom: 10px;
+  padding: 11px 13px;
+  font-size: 16px;
+}
+
+.article-field:focus,
+.article-editor:focus {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(139, 90, 43, 0.10);
+}
+
+.article-field:focus-visible,
+.article-editor:focus-visible,
+.article-photo-button:focus-visible,
+.article-save-btn:focus-visible,
+.article-action-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.article-photo-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+
+.article-photo-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.article-photo-button {
+  flex-shrink: 0;
+  padding: 8px 11px;
+  border: 1px solid #cdbb9f;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.article-photo-button:active {
+  transform: scale(0.98);
+  background: #fdf9f3;
+}
+
+#article-photo-summary {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-light);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.article-photo-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.article-photo-name {
+  max-width: 100%;
+  padding: 4px 8px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #eee6d9;
+  color: var(--text-light);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.article-hint {
+  margin: 8px 2px 12px;
+  color: var(--text-light);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.article-editor {
+  min-height: 280px;
+  padding: 14px;
+  resize: vertical;
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.article-editor::placeholder,
+.article-field::placeholder {
+  color: #9d9589;
+}
+
+.article-save-btn {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 15px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s, opacity 0.2s;
+}
+
+.article-save-btn:active {
+  transform: scale(0.99);
+  background: #75491f;
+}
+
+.article-save-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.article-upload-status {
+  min-height: 20px;
+  margin: 8px 4px 0;
+  color: var(--text-light);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.article-upload-status.success {
+  color: #517351;
+}
+
+.article-upload-status.error {
+  color: #b54545;
+}
+
+.article-library {
+  margin-top: 26px;
+}
+
+.article-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.article-section-title h3 {
+  margin: 0;
+  color: var(--text);
+  font-family: "Noto Serif SC", serif;
+  font-size: 17px;
+}
+
+.article-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+#article-count {
+  order: 3;
+  color: var(--text-light);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.article-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.article-empty-state {
+  padding: 42px 14px;
+  color: var(--text-light);
+  text-align: center;
+  font-size: 14px;
+}
+
+.article-item {
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-bg);
+}
+
+.article-item-main {
+  min-width: 0;
+}
+
+.article-filename {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.article-meta {
+  margin-top: 3px;
+  color: var(--text-light);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.article-item-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.article-status-row,
+.article-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.article-badge {
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: var(--primary-soft);
+  color: var(--text-light);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.article-badge.cloud {
+  background: #e8f1e6;
+  color: #4d704d;
+}
+
+.article-badge.uploading {
+  background: #f4ead8;
+  color: #8b6914;
+}
+
+.article-action-btn {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.article-action-btn:active {
+  transform: scale(0.96);
+  background: var(--primary-soft);
+}
+
+.article-action-btn:disabled {
+  opacity: 0.4;
+}
+
+@media (max-height: 720px) {
+  .article-editor {
+    min-height: 220px;
+  }
+}
+
+/* ====== 旧识人数据样式（界面已下线，数据仍保留） ====== */
 .people-list-view {
   flex: 1;
   overflow-y: auto;
