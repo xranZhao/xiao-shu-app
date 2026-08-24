@@ -1,9 +1,9 @@
-const CACHE_NAME = "xiao-shu-app-v24";
+const CACHE_NAME = "xiao-shu-app-v25";
 const ASSETS = [
   "/xiao-shu-app/",
   "/xiao-shu-app/index.html",
-  "/xiao-shu-app/style.css?v=36",
-  "/xiao-shu-app/app.js?v=41",
+  "/xiao-shu-app/style.css?v=37",
+  "/xiao-shu-app/app.js?v=42",
   "/xiao-shu-app/config.js?v=25",
   "/xiao-shu-app/xiaoshu-prompt.js?v=24",
   "/xiao-shu-app/manifest.json?v=2",

@@ -114,6 +114,9 @@ const App = {
         console.log("检测到旧自由书写格式数据，已自动清除");
         this.reverseDiaries = [];
       }
+
+      // 品牌或排版变化不应让已上传记录重新变成“未同步”
+      this.migrateSyncState();
     } catch (e) {
       console.error("加载数据失败", e);
     }
@@ -1616,8 +1619,43 @@ ${historySummary}`;
     return (hash >>> 0).toString(16).padStart(8, "0");
   },
 
-  formatSyncMarkdown(entry) {
+  syncContentHash(entry) {
+    const d = entry.record || {};
+    const steps = d.steps || {};
+    const common = {
+      version: 1,
+      id: String(d.id || ""),
+      type: entry.type,
+      title: String(d.title || ""),
+      createdAt: String(d.createdAt || d.date || ""),
+      feedback: String(d.feedback || ""),
+    };
+    const content = entry.type === "reverse"
+      ? {
+          trigger: String(d.trigger || ""),
+          triggerIntensity: String(d.triggerIntensity ?? ""),
+          oldProgram: String(d.oldProgram || ""),
+          newChoice: String(d.newChoice || ""),
+          result: String(d.result || ""),
+          resultIntensity: String(d.resultIntensity ?? ""),
+        }
+      : {
+          content: String(d.content || ""),
+          event: String(steps.event || ""),
+          feeling: String(steps.feeling || ""),
+          defense: String(steps.defense || ""),
+          extend: String(steps.extend || ""),
+          aiSummary: entry.type === "happy" ? String(d.aiSummary || this.quoteFor(d) || "") : "",
+        };
+    return this.textHash(JSON.stringify({ ...common, content }));
+  },
+
+  formatSyncMarkdown(entry, options = {}) {
     const d = entry.record;
+    const legacyBrand = options.legacyBrand === true;
+    const sourceApp = legacyBrand ? "小树觉察室" : "阿野觉察室";
+    const responseLabel = legacyBrand ? "小树回应" : "阿野回应";
+    const witnessLabel = legacyBrand ? "小树见证" : "阿野见证";
     const createdDate = new Date(d.createdAt || Date.now());
     const createdAt = Number.isNaN(createdDate.getTime()) ? new Date().toISOString() : createdDate.toISOString();
     const title = String(d.title || (entry.type === "reverse" ? "反向选择" : "未命名")).replace(/[\r\n]+/g, " ").trim();
@@ -1629,7 +1667,7 @@ ${historySummary}`;
       `typeLabel: ${JSON.stringify(entry.folder)}`,
       `title: ${JSON.stringify(title)}`,
       `createdAt: ${JSON.stringify(createdAt)}`,
-      "sourceApp: \"阿野觉察室\"",
+      `sourceApp: ${JSON.stringify(sourceApp)}`,
       "---",
       "",
       `# ${title}`,
@@ -1644,7 +1682,7 @@ ${historySummary}`;
         ...section("反向选择", d.newChoice),
         ...section("结果", `情绪强度：${d.resultIntensity ?? "-"}\n\n${d.result || "（未记录）"}`),
         ...section("情绪变化", `${d.triggerIntensity ?? "-"} → ${d.resultIntensity ?? "-"}`),
-        ...section("阿野见证", d.feedback),
+        ...section(witnessLabel, d.feedback),
       ].join("\n").trim() + "\n";
     }
 
@@ -1657,16 +1695,44 @@ ${historySummary}`;
       ...section("身心感受", steps.feeling),
       ...section(defenseLabel, steps.defense),
       ...section("延展模型", steps.extend),
-      ...section("阿野回应", d.feedback),
+      ...section(responseLabel, d.feedback),
     );
     return lines.join("\n").trim() + "\n";
+  },
+
+  migrateSyncState() {
+    let migrated = 0;
+    for (const entry of this.getSyncEntries()) {
+      const key = this.syncStateKey(entry.type, entry.record.id);
+      const state = this.syncState[key];
+      if (!state || state.status !== "synced" || state.contentHash) continue;
+
+      const currentMarkdown = this.formatSyncMarkdown(entry);
+      const legacyMarkdown = this.formatSyncMarkdown(entry, { legacyBrand: true });
+      const knownHash = state.hash || "";
+      const matchesKnownFormat = knownHash === this.textHash(currentMarkdown)
+        || knownHash === this.textHash(legacyMarkdown);
+      if (!matchesKnownFormat) continue;
+
+      this.syncState[key] = {
+        ...state,
+        hash: this.textHash(currentMarkdown),
+        contentHash: this.syncContentHash(entry),
+        contentHashVersion: 1,
+      };
+      migrated++;
+    }
+    if (migrated > 0) {
+      localStorage.setItem("xs_sync_state", JSON.stringify(this.syncState));
+      console.log(`已恢复 ${migrated} 条历史记录的同步状态`);
+    }
   },
 
   getEntrySyncStatus(entry) {
     const state = this.syncState[this.syncStateKey(entry.type, entry.record.id)] || {};
     if (state.status === "uploading") return "uploading";
-    const currentHash = this.textHash(this.formatSyncMarkdown(entry));
-    if (state.status === "synced" && state.hash === currentHash) return "synced";
+    const contentHash = this.syncContentHash(entry);
+    if (state.status === "synced" && state.contentHash === contentHash) return "synced";
     if (state.status === "failed") return "failed";
     return "pending";
   },
@@ -1726,6 +1792,23 @@ ${historySummary}`;
       throw new Error(data.message || `读取远端文件失败 (${response.status})`);
     }
     return (await response.json()).sha;
+  },
+
+  decodeGitHubBase64(content) {
+    const binary = atob(String(content || "").replace(/\s/g, ""));
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  },
+
+  async getGitHubFileContent(config, remotePath) {
+    const safePath = remotePath.split("/").map(encodeURIComponent).join("/");
+    const response = await fetch(`https://api.github.com/repos/${config.githubRepo}/contents/${safePath}`, {
+      headers: { "Authorization": `Bearer ${config.githubToken}`, "Accept": "application/vnd.github+json" },
+    });
+    if (response.status === 404) return null;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || `读取远端文件失败 (${response.status})`);
+    return this.decodeGitHubBase64(data.content);
   },
 
   async ensurePrivateSyncRepo(config) {
@@ -1793,6 +1876,8 @@ ${historySummary}`;
       this.syncState[key] = {
         status: "synced",
         hash: this.textHash(markdown),
+        contentHash: this.syncContentHash(entry),
+        contentHashVersion: 1,
         remotePath,
         uploadedAt: new Date().toISOString(),
         error: "",
@@ -1844,6 +1929,68 @@ ${historySummary}`;
     } catch (error) {
       if (statusEl) statusEl.textContent = `❌ ${error.message}`;
       this.showToast(`连接失败：${error.message}`);
+    }
+  },
+
+  async reconcileRemoteSyncState() {
+    const config = this.readSyncFormConfig();
+    if (!config.githubToken) { this.showToast("请先填写 GitHub Token"); return; }
+    const pending = this.getSyncEntries().filter(entry => this.getEntrySyncStatus(entry) !== "synced");
+    if (pending.length === 0) { this.showToast("所有记录都已同步 ✅"); return; }
+
+    const btn = document.getElementById("sync-reconcile-btn");
+    const uploadBtn = document.getElementById("sync-upload-all-btn");
+    if (btn) btn.disabled = true;
+    if (uploadBtn) uploadBtn.disabled = true;
+    let restored = 0;
+    let different = 0;
+    let missing = 0;
+
+    try {
+      await this.ensurePrivateSyncRepo(config);
+      for (let i = 0; i < pending.length; i++) {
+        if (btn) btn.textContent = `核对中 ${i + 1} / ${pending.length}`;
+        const entry = pending[i];
+        const remotePath = this.syncRemotePath(entry, config);
+        const remoteMarkdown = await this.getGitHubFileContent(config, remotePath);
+        if (remoteMarkdown === null) {
+          missing++;
+          continue;
+        }
+
+        const remoteHash = this.textHash(remoteMarkdown);
+        const currentHash = this.textHash(this.formatSyncMarkdown(entry));
+        const legacyHash = this.textHash(this.formatSyncMarkdown(entry, { legacyBrand: true }));
+        if (remoteHash !== currentHash && remoteHash !== legacyHash) {
+          different++;
+          continue;
+        }
+
+        const key = this.syncStateKey(entry.type, entry.record.id);
+        this.syncState[key] = {
+          ...(this.syncState[key] || {}),
+          status: "synced",
+          hash: currentHash,
+          contentHash: this.syncContentHash(entry),
+          contentHashVersion: 1,
+          remotePath,
+          reconciledAt: new Date().toISOString(),
+          error: "",
+        };
+        restored++;
+      }
+      localStorage.setItem("xs_sync_state", JSON.stringify(this.syncState));
+      this.refreshSyncButtons();
+      this.showToast(`核对完成：恢复 ${restored} 条，内容不同 ${different} 条，远端缺少 ${missing} 条`);
+    } catch (error) {
+      console.error("核对远端同步状态失败", error);
+      this.showToast(`核对失败：${error.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "🔎 核对 GitHub 已有记录";
+      }
+      this.renderSyncSettings();
     }
   },
 
@@ -3652,6 +3799,8 @@ ${obsText}${ctInfo}
     if (testSyncBtn) testSyncBtn.addEventListener("click", () => this.testSyncConnection());
     const uploadAllSyncBtn = document.getElementById("sync-upload-all-btn");
     if (uploadAllSyncBtn) uploadAllSyncBtn.addEventListener("click", () => this.uploadAllPendingEntries());
+    const reconcileSyncBtn = document.getElementById("sync-reconcile-btn");
+    if (reconcileSyncBtn) reconcileSyncBtn.addEventListener("click", () => this.reconcileRemoteSyncState());
     // 导入闪光数据
     const importDataBtn = document.getElementById("import-data-btn");
     const importStatus = document.getElementById("import-status");
@@ -3799,7 +3948,7 @@ ${obsText}${ctInfo}
 // PWA 注册 + 自动更新
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js?v=27").then((reg) => {
+    navigator.serviceWorker.register("sw.js?v=28").then((reg) => {
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
