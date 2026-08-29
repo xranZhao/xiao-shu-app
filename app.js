@@ -1650,6 +1650,42 @@ ${historySummary}`;
     return this.textHash(JSON.stringify({ ...common, content }));
   },
 
+  // 同一条记录的标题必须同时用于：手机列表、Markdown 元数据和云端文件名。
+  // 旧导入数据常只有“时间：……”或空标题；同步前补一个可读、稳定的本地标题。
+  getSyncEntryTitle(entry) {
+    const d = entry.record || {};
+    const existing = String(d.title || "").replace(/[\r\n]+/g, " ").trim();
+    if (existing && existing !== "未命名" && !/^时间[：:]/u.test(existing)) return existing;
+
+    const date = new Date(d.createdAt || Date.now());
+    const dateCode = Number.isNaN(date.getTime())
+      ? new Date().toISOString().slice(2, 10).replace(/-/g, "")
+      : `${String(date.getFullYear()).slice(2)}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+    const steps = d.steps || {};
+    const raw = entry.type === "reverse"
+      ? (d.newChoice || d.trigger || d.oldProgram || "反向选择")
+      : (d.aiSummary || steps.event || d.content || "一则记录");
+    const summary = String(raw)
+      .replace(/[\r\n\s]+/g, " ")
+      .replace(/[，。！？、；：“”‘’（）()【】\[\]]/gu, "")
+      .slice(0, 14)
+      .trim() || "一则记录";
+    const suffix = entry.type === "happy" ? "快乐治愈" : entry.type === "reverse" ? "反向选择" : "觉察日记";
+    const title = `${dateCode}_${summary}_${suffix}`;
+    d.title = title;
+    return title;
+  },
+
+  syncFilename(entry) {
+    const title = this.getSyncEntryTitle(entry)
+      .replace(/[\\/:*?"<>|]/gu, " ")
+      .replace(/\s+/gu, " ")
+      .trim()
+      .slice(0, 56) || "未命名记录";
+    const id = String(entry.record?.id || Date.now()).replace(/[^\w-]/gu, "");
+    return `${title}__${id}.md`;
+  },
+
   formatSyncMarkdown(entry, options = {}) {
     const d = entry.record;
     const legacyBrand = options.legacyBrand === true;
@@ -1658,7 +1694,7 @@ ${historySummary}`;
     const witnessLabel = legacyBrand ? "小树见证" : "阿野见证";
     const createdDate = new Date(d.createdAt || Date.now());
     const createdAt = Number.isNaN(createdDate.getTime()) ? new Date().toISOString() : createdDate.toISOString();
-    const title = String(d.title || (entry.type === "reverse" ? "反向选择" : "未命名")).replace(/[\r\n]+/g, " ").trim();
+    const title = this.getSyncEntryTitle(entry);
     const meta = [
       "---",
       "schemaVersion: 1",
@@ -1768,7 +1804,7 @@ ${historySummary}`;
     if (Number.isNaN(date.getTime())) date = new Date();
     const year = String(date.getFullYear());
     const month = String(date.getMonth() + 1).padStart(2, "0");
-    return `${config.syncPath}/${entry.folder}/${year}/${month}/${entry.record.id}.md`;
+    return `${config.syncPath}/${entry.folder}/${year}/${month}/${this.syncFilename(entry)}`;
   },
 
   utf8ToBase64(text) {
@@ -1861,6 +1897,11 @@ ${historySummary}`;
       if (!options.silent) { this.showToast("请先在设置中填写 GitHub Token"); this.switchTab("settings"); }
       return false;
     }
+
+    // 标题补全后立即写回本机记录，避免下次同步又退回“未命名/时间”。
+    const titleBefore = entry.record.title;
+    this.getSyncEntryTitle(entry);
+    if (entry.record.title !== titleBefore) this.saveData();
 
     const key = this.syncStateKey(type, id);
     const previous = this.syncState[key] || {};
